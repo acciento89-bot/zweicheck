@@ -89,3 +89,36 @@ CREATE TABLE IF NOT EXISTS attachments (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS attachments_check_idx ON attachments(check_id);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint text NOT NULL UNIQUE,
+  p256dh text NOT NULL,
+  auth text NOT NULL,
+  user_agent text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_id);
+
+CREATE TABLE IF NOT EXISTS push_worker_state (
+  id boolean PRIMARY KEY DEFAULT TRUE CHECK (id = TRUE),
+  activated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS push_notifications (
+  id bigserial PRIMARY KEY,
+  check_id uuid NOT NULL REFERENCES check_requests(id) ON DELETE CASCADE,
+  event_type text NOT NULL CHECK (event_type IN ('check_created', 'check_answered')),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'skipped')),
+  attempts integer NOT NULL DEFAULT 0,
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  last_error text,
+  sent_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (check_id, event_type)
+);
+CREATE INDEX IF NOT EXISTS push_notifications_due_idx
+  ON push_notifications(status, next_attempt_at, created_at);
