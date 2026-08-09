@@ -32,6 +32,64 @@ Enthalten sind:
 - Familienabo-Vorschau
 - Offline-App-Shell und Installationsmanifest
 
+## Online-Deployment
+
+Der Prototyp ist für die Veröffentlichung unter folgender Adresse vorbereitet:
+
+```text
+https://zweicheck.kamilunavo.com
+```
+
+Die Anwendung wird als statische PWA in einem kleinen Nginx-Container ausgeliefert. Der Container stellt `/health` für Docker und Caddy bereit.
+
+### Bestehendes Serverprojekt aktualisieren
+
+Im Verzeichnis, in dem die anderen Kamilunavo-Dienste liegen:
+
+```bash
+git clone https://github.com/acciento89-bot/zweicheck.git
+```
+
+Existiert der Ordner bereits:
+
+```bash
+cd zweicheck
+git pull origin main
+cd ..
+```
+
+Den Dienst aus [`deploy/compose-snippet.yml`](deploy/compose-snippet.yml) in die bestehende `docker-compose.yml` übernehmen. Der erwartete Projektordner neben der Compose-Datei heißt `zweicheck`.
+
+Danach den Caddy-Block aus [`deploy/Caddyfile.snippet`](deploy/Caddyfile.snippet) in die bestehende Caddyfile übernehmen.
+
+Anschließend:
+
+```bash
+docker compose build --no-cache zweicheck
+docker compose up -d --force-recreate zweicheck
+docker compose restart caddy
+```
+
+### Deployment prüfen
+
+```bash
+docker compose ps zweicheck
+docker compose logs --tail=100 zweicheck
+curl -fsS https://zweicheck.kamilunavo.com/health
+```
+
+Erwartete Antwort:
+
+```text
+ok
+```
+
+Danach im Browser öffnen:
+
+```text
+https://zweicheck.kamilunavo.com
+```
+
 ## Prototyp lokal öffnen
 
 Ein einfacher lokaler Webserver reicht aus:
@@ -56,9 +114,10 @@ npx serve .
 
 ```bash
 npm run check
+docker build -t zweicheck:test .
 ```
 
-Die GitHub Action führt dieselbe JavaScript-Prüfung bei jedem Push und Pull Request aus.
+Die GitHub Action prüft JavaScript, erforderliche Dateien, den Docker-Build, den Healthcheck und die ausgelieferte Startseite bei jedem Push und Pull Request.
 
 ## Demo-Hinweis
 
