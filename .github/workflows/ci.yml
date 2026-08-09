@@ -74,10 +74,14 @@ jobs:
             cat /tmp/zweicheck.log
             exit 1
           fi
-          curl -fsS http://127.0.0.1:3000/push-client.js | grep -q 'Notification.requestPermission'
-          curl -fsS http://127.0.0.1:3000/deep-link.js | grep -q 'requestedCheckId'
-          curl -fsS http://127.0.0.1:3000/activity-center.js | grep -q 'data-activity-nav'
-          curl -fsS http://127.0.0.1:3000/activity-center.css | grep -q 'activity-card'
+          curl -fsS http://127.0.0.1:3000/push-client.js -o /tmp/push-client.js
+          curl -fsS http://127.0.0.1:3000/deep-link.js -o /tmp/deep-link.js
+          curl -fsS http://127.0.0.1:3000/activity-center.js -o /tmp/activity-center.js
+          curl -fsS http://127.0.0.1:3000/activity-center.css -o /tmp/activity-center.css
+          grep -q 'Notification.requestPermission' /tmp/push-client.js
+          grep -q 'requestedCheckId' /tmp/deep-link.js
+          grep -q 'data-activity-nav' /tmp/activity-center.js
+          grep -q 'activity-card' /tmp/activity-center.css
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/activities)" = "401"
       - name: Docker-Image bauen
         run: docker build -t zweicheck:test .
