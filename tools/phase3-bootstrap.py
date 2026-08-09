@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import shutil
 import tarfile
@@ -8,8 +9,17 @@ from pathlib import Path
 
 root = Path.cwd().resolve()
 chunk_dir = root / "tools" / "bootstrap"
-encoded = "".join(path.read_text().strip() for path in sorted(chunk_dir.glob("chunk*")))
-archive = base64.b64decode(encoded)
+chunk_names = [*(f"chunk{index:02d}" for index in range(7)), "chunk07a", "chunk07b"]
+encoded = "".join((chunk_dir / name).read_text().strip() for name in chunk_names)
+
+if len(encoded) != 39552:
+    raise RuntimeError(f"Unexpected encoded length: {len(encoded)}")
+if hashlib.sha256(encoded.encode()).hexdigest() != "f561be8bef5c5faa63344c6c0a7ea59ecbf6a2218db14624362656688a95b9eb":
+    raise RuntimeError("Phase 3 archive checksum mismatch")
+
+archive = base64.b64decode(encoded, validate=True)
+if hashlib.sha256(archive).hexdigest() != "65419058af83dfdbf23e15a49f2ccdcc8aa8dd15e2f4e5f288eeec723325251e":
+    raise RuntimeError("Decoded Phase 3 archive checksum mismatch")
 
 with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
     for member in tar.getmembers():
