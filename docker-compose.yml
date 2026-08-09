@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: zweicheck
+      POSTGRES_USER: zweicheck
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zweicheck_dev}
+    volumes:
+      - zweicheck_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zweicheck -d zweicheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      APP_BASE_URL: http://localhost:3000
+      DATABASE_URL: postgresql://zweicheck:${POSTGRES_PASSWORD:-zweicheck_dev}@db:5432/zweicheck
+      SESSION_COOKIE_SECURE: "false"
+      EMAIL_MODE: log
+      UPLOAD_DIR: /data/uploads
+    ports:
+      - "3000:3000"
+    volumes:
+      - zweicheck_uploads:/data/uploads
+
+volumes:
+  zweicheck_postgres:
+  zweicheck_uploads:
