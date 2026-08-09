@@ -1,0 +1,55 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "brand": {
+    "name": "ZweiCheck",
+    "claim": "Gemeinsam prüfen. Sicher handeln."
+  },
+  "color": {
+    "navy900": { "$type": "color", "$value": "#0D1B2A" },
+    "navy700": { "$type": "color", "$value": "#1B2E4B" },
+    "teal500": { "$type": "color", "$value": "#00D4C4" },
+    "teal600": { "$type": "color", "$value": "#00AFA8" },
+    "orange500": { "$type": "color", "$value": "#FF9F1C" },
+    "red500": { "$type": "color", "$value": "#FF4D4D" },
+    "gray050": { "$type": "color", "$value": "#F2F4F7" },
+    "gray200": { "$type": "color", "$value": "#D8DEE7" },
+    "white": { "$type": "color", "$value": "#FFFFFF" },
+    "black": { "$type": "color", "$value": "#08111D" }
+  },
+  "semantic": {
+    "backgroundPrimary": { "$type": "color", "$value": "{color.gray050}" },
+    "backgroundDark": { "$type": "color", "$value": "{color.navy900}" },
+    "surfaceDark": { "$type": "color", "$value": "{color.navy700}" },
+    "actionPrimary": { "$type": "color", "$value": "{color.teal500}" },
+    "actionWarning": { "$type": "color", "$value": "{color.orange500}" },
+    "actionCritical": { "$type": "color", "$value": "{color.red500}" },
+    "textOnDark": { "$type": "color", "$value": "{color.white}" },
+    "textOnLight": { "$type": "color", "$value": "{color.navy900}" }
+  },
+  "font": {
+    "family": { "$type": "fontFamily", "$value": "Inter" },
+    "weightRegular": { "$type": "fontWeight", "$value": 400 },
+    "weightMedium": { "$type": "fontWeight", "$value": 500 },
+    "weightSemibold": { "$type": "fontWeight", "$value": 650 },
+    "weightBold": { "$type": "fontWeight", "$value": 750 }
+  },
+  "radius": {
+    "small": { "$type": "dimension", "$value": "12px" },
+    "medium": { "$type": "dimension", "$value": "18px" },
+    "large": { "$type": "dimension", "$value": "26px" },
+    "pill": { "$type": "dimension", "$value": "999px" }
+  },
+  "space": {
+    "xs": { "$type": "dimension", "$value": "4px" },
+    "sm": { "$type": "dimension", "$value": "8px" },
+    "md": { "$type": "dimension", "$value": "16px" },
+    "lg": { "$type": "dimension", "$value": "24px" },
+    "xl": { "$type": "dimension", "$value": "32px" },
+    "xxl": { "$type": "dimension", "$value": "48px" }
+  },
+  "layout": {
+    "minimumTapTarget": { "$type": "dimension", "$value": "48px" },
+    "screenHorizontalPadding": { "$type": "dimension", "$value": "20px" },
+    "buttonHeight": { "$type": "dimension", "$value": "56px" }
+  }
+}
