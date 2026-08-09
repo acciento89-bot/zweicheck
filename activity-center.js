@@ -9,6 +9,7 @@
     nextBefore: null,
     loading: false,
     initialized: false,
+    error: '',
     refreshTimer: null
   };
 
@@ -114,6 +115,12 @@
       ? `<div class="activity-list">${state.activities.map(itemHtml).join('')}</div>`
       : `<div class="empty-state activity-empty"><span>✓</span><p>${state.filter === 'unread' ? 'Keine ungelesenen Aktivitäten.' : 'Noch keine Aktivitäten vorhanden.'}</p></div>`;
 
+    const content = state.error
+      ? `<section class="notice notice-warning"><div><strong>Aktivitäten nicht erreichbar</strong><p>${escapeHtml(state.error)}</p></div><button class="button button-small button-secondary" type="button" data-activity-retry>Erneut versuchen</button></section>`
+      : state.loading && !state.activities.length
+        ? '<div class="activity-loading"><div class="spinner"></div><p>Aktivitäten werden geladen …</p></div>'
+        : list;
+
     return `
       <section class="activity-center" data-activity-center>
         <div class="activity-heading">
@@ -128,8 +135,8 @@
           <button class="chip ${state.filter === 'all' ? 'active' : ''}" type="button" data-activity-filter="all">Alle</button>
           <button class="chip ${state.filter === 'unread' ? 'active' : ''}" type="button" data-activity-filter="unread">Ungelesen</button>
         </div>
-        ${state.loading && !state.activities.length ? '<div class="activity-loading"><div class="spinner"></div><p>Aktivitäten werden geladen …</p></div>' : list}
-        ${state.nextBefore ? '<button class="button button-secondary activity-more" type="button" data-activity-more>Weitere laden</button>' : ''}
+        ${content}
+        ${!state.error && state.nextBefore ? '<button class="button button-secondary activity-more" type="button" data-activity-more>Weitere laden</button>' : ''}
       </section>`;
   }
 
@@ -146,6 +153,7 @@
   async function loadActivities({ append = false, quiet = false } = {}) {
     if (!isAuthenticatedShell() || state.loading) return;
     state.loading = true;
+    state.error = '';
     if (!quiet) renderCenter();
 
     try {
@@ -157,16 +165,11 @@
       state.nextBefore = result.nextBefore;
       state.initialized = true;
     } catch (error) {
-      if (!quiet) {
-        const main = document.querySelector('.app-main');
-        if (main && state.active) {
-          main.innerHTML = `<section class="notice notice-warning"><div><strong>Aktivitäten nicht erreichbar</strong><p>${escapeHtml(error.message)}</p></div><button class="button button-small button-secondary" data-activity-retry>Erneut versuchen</button></section>`;
-        }
-      }
+      if (!quiet) state.error = error.message;
     } finally {
       state.loading = false;
       updateBadge();
-      if (state.active && document.querySelector('[data-activity-center]')) renderCenter();
+      if (state.active) renderCenter();
     }
   }
 
@@ -175,6 +178,7 @@
     try {
       const result = await api('/api/activities/unread-count');
       state.unreadCount = result.unreadCount;
+      state.initialized = true;
       updateBadge();
       if (state.active) await loadActivities({ quiet: true });
     } catch {
@@ -260,6 +264,7 @@
       state.filter = filter.dataset.activityFilter === 'unread' ? 'unread' : 'all';
       state.activities = [];
       state.nextBefore = null;
+      state.error = '';
       renderCenter();
       loadActivities();
       return;
@@ -298,6 +303,7 @@
       state.initialized = false;
       state.activities = [];
       state.nextBefore = null;
+      state.error = '';
       return;
     }
 
