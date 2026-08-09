@@ -2,7 +2,7 @@ name: ZweiCheck CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, phase-3-mvp]
   pull_request:
 
 permissions:
@@ -11,40 +11,53 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: zweicheck_test
+          POSTGRES_USER: zweicheck
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zweicheck -d zweicheck_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v4
-
       - name: Node.js einrichten
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: JavaScript prüfen
+      - name: Abhängigkeiten installieren
+        run: npm install
+      - name: Syntax prüfen
         run: npm run check
-
-      - name: Erforderliche Dateien prüfen
+      - name: Unit-Tests
+        run: npm test
+      - name: Datenbankschema anwenden
+        env:
+          DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
+        run: npm run migrate
+      - name: Server-Smoke-Test
+        env:
+          DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
+          APP_BASE_URL: http://127.0.0.1:3000
+          SESSION_COOKIE_SECURE: "false"
+          EMAIL_MODE: log
+          UPLOAD_DIR: /tmp/zweicheck-uploads
         run: |
-          test -f index.html
-          test -f app.css
-          test -f app.js
-          test -f manifest.webmanifest
-          test -f sw.js
-          test -f Dockerfile
-          test -f deploy/nginx.conf
-          grep -q "Prüfung starten" app.js
-          grep -q "Gemeinsam prüfen. Sicher handeln." index.html
-
-      - name: Docker-Image bauen und prüfen
-        run: |
-          docker build -t zweicheck:test .
-          docker run -d --name zweicheck-test -p 8080:80 zweicheck:test
-          trap 'docker rm -f zweicheck-test >/dev/null 2>&1 || true' EXIT
-          for attempt in {1..15}; do
-            if curl -fsS http://127.0.0.1:8080/health >/dev/null; then
-              break
+          npm start > /tmp/zweicheck.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/health | grep -q ok; then
+              exit 0
             fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8080/health | grep -q "ok"
-          curl -fsS http://127.0.0.1:8080/ | grep -q "ZweiCheck"
+          cat /tmp/zweicheck.log
+          exit 1
+      - name: Docker-Image bauen
+        run: docker build -t zweicheck:test .
