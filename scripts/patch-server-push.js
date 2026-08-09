@@ -19,6 +19,14 @@ if (!source.includes('registerPushRoutes(app')) {
   source = source.replace(routeNeedle, routeCode);
 }
 
+const staticNeedle = "  app.get('/app.js', sendPublic('app.js'));";
+const staticCode = `${staticNeedle}\n  app.get('/deep-link.js', sendPublic('deep-link.js'));\n  app.get('/push-client.js', sendPublic('push-client.js'));`;
+
+if (!source.includes("app.get('/push-client.js'")) {
+  if (!source.includes(staticNeedle)) throw new Error('Static script insertion point not found in server/index.js');
+  source = source.replace(staticNeedle, staticCode);
+}
+
 const workerNeedle = '  await db.migrate();';
 const workerCode = `${workerNeedle}\n  startPushWorker();`;
 
