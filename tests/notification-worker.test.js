@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+process.env.APP_BASE_URL = 'https://zweicheck.kamilunavo.com';
+
 const {
   buildNotificationMessage,
   CATEGORY_LABELS,
