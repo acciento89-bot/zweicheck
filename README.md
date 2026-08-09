@@ -6,9 +6,9 @@ ZweiCheck verbindet Menschen in unsicheren Situationen mit einer Person, der sie
 
 ## Aktueller Entwicklungsstand
 
-**Phase 3 – echte Konten und Vertrauensverbindungen**
+**Phase 3.2 – Benachrichtigungen und echte Vertrauensverbindungen**
 
-Der Branch `phase-3-mvp` enthält eine vollständige serverfähige MVP-Grundlage:
+Die serverfähige MVP-Grundlage enthält:
 
 - Registrierung und Anmeldung
 - sichere Cookie-Sitzungen
@@ -19,6 +19,9 @@ Der Branch `phase-3-mvp` enthält eine vollständige serverfähige MVP-Grundlage
 - geschützte Bild-Uploads
 - vier Handlungsempfehlungen
 - automatisches Aktualisieren neuer Antworten
+- gestaltete Transaktions-E-Mails
+- E-Mail-Benachrichtigungen bei Prüfanfragen und Antworten
+- optionale Web-Push-Benachrichtigungen pro Gerät
 - Verlauf und sofortiger Zugriffsentzug
 - PostgreSQL und persistente Docker-Volumes
 
@@ -70,7 +73,23 @@ SMTP_PASS=...
 SMTP_FROM=ZweiCheck <noreply@kamilunavo.com>
 ```
 
-Caddy muss auf den neuen App-Port zeigen:
+Für Push-Benachrichtigungen einmalig ein VAPID-Schlüsselpaar erzeugen:
+
+```bash
+npm run generate-vapid
+```
+
+Anschließend ausschließlich als sichere Umgebungsvariablen hinterlegen:
+
+```text
+VAPID_SUBJECT=mailto:noreply@kamilunavo.com
+VAPID_PUBLIC_KEY=<öffentlicher Schlüssel>
+VAPID_PRIVATE_KEY=<privater Schlüssel>
+```
+
+Der private Schlüssel gehört niemals ins Repository oder in Support-Nachrichten.
+
+Caddy muss auf den App-Port zeigen:
 
 ```caddy
 zweicheck.kamilunavo.com {
@@ -95,7 +114,7 @@ Die GitHub Action startet zusätzlich PostgreSQL, wendet das Schema an, führt e
 - Keine TANs, Passwörter oder vollständigen Kartendaten teilen.
 - Keine öffentliche Nutzersuche.
 - Keine Bank- oder Versicherungsintegration im MVP.
-- Push-Benachrichtigungen folgen nach der stabilen Grundversion.
+- Push-Nachrichten enthalten keine Beschreibungen, Bilder oder anderen sensiblen Inhalte.
 
 ## Dokumentation
 
