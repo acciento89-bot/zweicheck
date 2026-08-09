@@ -225,6 +225,12 @@
   }
 
   document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="logout"]')) {
+      syncedEndpoint = '';
+      configPromise = null;
+      return;
+    }
+
     const toggle = event.target.closest('[data-push-toggle]');
     if (!toggle) return;
     const panel = toggle.closest('[data-push-panel]');
@@ -234,6 +240,7 @@
   });
 
   const observer = new MutationObserver(() => {
+    if (!document.querySelector('.app-shell')) syncedEndpoint = '';
     mountPanel();
     syncExistingSubscription();
   });
