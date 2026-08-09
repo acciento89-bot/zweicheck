@@ -1,0 +1,139 @@
+.bottom-nav.activity-nav-ready {
+  grid-template-columns: repeat(5, 1fr);
+  width: min(720px, calc(100% - 22px));
+}
+
+.activity-nav-icon {
+  position: relative;
+  display: inline-grid !important;
+  place-items: center;
+}
+
+.activity-nav-icon b {
+  position: absolute;
+  top: -7px;
+  right: -13px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid white;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: var(--orange-600);
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.activity-nav-icon b[hidden] { display: none; }
+
+.activity-center { display: grid; gap: 18px; }
+.activity-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.activity-heading h1 { margin-bottom: 8px; }
+.activity-heading p { margin: 0; color: var(--muted); max-width: 620px; line-height: 1.55; }
+
+.activity-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.activity-summary span {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: white;
+  color: var(--muted);
+}
+
+.activity-summary strong { color: var(--navy-900); font-size: 22px; margin-right: 5px; }
+.activity-filters { padding-bottom: 0; }
+.activity-list { display: grid; gap: 10px; }
+
+.activity-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 8px 24px rgba(6,26,47,.045);
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+
+.activity-card:hover {
+  transform: translateY(-1px);
+  border-color: #9ccfce;
+  box-shadow: 0 12px 28px rgba(6,26,47,.08);
+}
+
+.activity-card.activity-unread {
+  border-color: rgba(19,193,186,.55);
+  background: linear-gradient(90deg, rgba(223,248,246,.72), white 35%);
+}
+
+.activity-card-main {
+  min-width: 0;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.activity-icon {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: var(--teal-100);
+  color: var(--navy-900);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.activity-copy { min-width: 0; display: grid; gap: 5px; }
+.activity-title-row { display: flex; align-items: center; gap: 8px; }
+.activity-title-row strong { color: var(--ink); }
+.activity-body { color: #40536b; line-height: 1.45; }
+.activity-copy small { font-size: 12px; }
+.activity-dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: var(--orange-600); }
+
+.activity-archive {
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: rgba(244,247,250,.8);
+  color: var(--muted);
+  font-size: 22px;
+}
+
+.activity-archive:hover { color: var(--red-600); background: var(--red-100); }
+.activity-more { width: 100%; }
+.activity-empty { min-height: 220px; }
+.activity-loading { min-height: 220px; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--muted); }
+.activity-loading .spinner { border-color: rgba(6,26,47,.14); border-top-color: var(--teal-600); }
+
+@media (max-width: 760px) {
+  .bottom-nav.activity-nav-ready { width: calc(100% - 12px); bottom: max(6px, var(--safe-bottom)); padding: 5px; border-radius: 18px; }
+  .bottom-nav.activity-nav-ready button { font-size: 9px; }
+  .bottom-nav.activity-nav-ready button span { font-size: 18px; }
+  .activity-heading { align-items: stretch; flex-direction: column; }
+  .activity-heading .button { width: 100%; }
+  .activity-card-main { padding: 14px 12px; gap: 11px; align-items: flex-start; }
+  .activity-icon { flex-basis: 42px; width: 42px; height: 42px; border-radius: 13px; }
+  .activity-body { font-size: 14px; }
+}
+
+@media (max-width: 390px) {
+  .bottom-nav.activity-nav-ready button { font-size: 8px; }
+  .activity-summary { grid-template-columns: 1fr; }
+  .activity-card { grid-template-columns: minmax(0, 1fr) 36px; }
+}
