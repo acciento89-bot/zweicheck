@@ -7,6 +7,7 @@ COPY package.json ./
 RUN npm install --omit=dev
 
 COPY . .
+RUN node scripts/patch-polling.js && node --check app.js
 RUN mkdir -p /data/uploads && chown -R node:node /app /data
 
 USER node
