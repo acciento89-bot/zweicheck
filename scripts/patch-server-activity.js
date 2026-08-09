@@ -19,4 +19,12 @@ if (!source.includes('registerActivityRoutes(app')) {
   source = source.replace(routeNeedle, routeCode);
 }
 
+const staticNeedle = "  app.get('/app.css', sendPublic('app.css'));";
+const staticCode = `${staticNeedle}\n  app.get('/activity-center.js', sendPublic('activity-center.js'));\n  app.get('/activity-center.css', sendPublic('activity-center.css'));`;
+
+if (!source.includes("app.get('/activity-center.js'")) {
+  if (!source.includes(staticNeedle)) throw new Error('Static activity insertion point not found in server/index.js');
+  source = source.replace(staticNeedle, staticCode);
+}
+
 fs.writeFileSync(file, source);
