@@ -34,6 +34,8 @@ jobs:
           node-version: 22
       - name: Abhängigkeiten installieren
         run: npm install
+      - name: Runtime vorbereiten
+        run: npm run prepare-runtime
       - name: Syntax prüfen
         run: npm run check
       - name: Unit-Tests
@@ -65,5 +67,8 @@ jobs:
           fi
           curl -fsS http://127.0.0.1:3000/push-client.js | grep -q 'Notification.requestPermission'
           curl -fsS http://127.0.0.1:3000/deep-link.js | grep -q 'requestedCheckId'
+          curl -fsS http://127.0.0.1:3000/activity-center.js | grep -q 'data-activity-nav'
+          curl -fsS http://127.0.0.1:3000/activity-center.css | grep -q 'activity-card'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/activities)" = "401"
       - name: Docker-Image bauen
         run: docker build -t zweicheck:test .
