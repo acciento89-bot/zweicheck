@@ -51,13 +51,19 @@ jobs:
           UPLOAD_DIR: /tmp/zweicheck-uploads
         run: |
           npm start > /tmp/zweicheck.log 2>&1 &
+          ready=0
           for attempt in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/health | grep -q ok; then
-              exit 0
+              ready=1
+              break
             fi
             sleep 1
           done
-          cat /tmp/zweicheck.log
-          exit 1
+          if [ "$ready" != "1" ]; then
+            cat /tmp/zweicheck.log
+            exit 1
+          fi
+          curl -fsS http://127.0.0.1:3000/push-client.js | grep -q 'Notification.requestPermission'
+          curl -fsS http://127.0.0.1:3000/deep-link.js | grep -q 'requestedCheckId'
       - name: Docker-Image bauen
         run: docker build -t zweicheck:test .
