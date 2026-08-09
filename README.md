@@ -12,21 +12,57 @@ ZweiCheck ist keine automatische Sicherheitsgarantie und keine Bank-App. Die App
 
 ## Aktueller Stand
 
-**Phase 1 – Marken- und Produktfundament**
+**Phase 2 – klickbarer Mobile-First-Prototyp**
 
-- Produktname: **ZweiCheck**
-- Claim: **Gemeinsam prüfen. Sicher handeln.**
-- Betreiber/Dachmarke: **Kamilunavo**
-- Designrichtung: Dunkelblau, Türkis, warmes Orange
-- Ziel: extrem einfache, mobile Bedienung in Stresssituationen
+Der Prototyp funktioniert vollständig im Browser, speichert Demoänderungen lokal und kann als PWA installiert werden. Es gibt bewusst noch kein Backend und keine echte Registrierung.
 
-## Kernablauf
+Enthalten sind:
 
-1. Eine Person ist unsicher und startet eine Prüfung.
-2. Sie wählt die Situation und fügt Foto, Screenshot, Text oder Sprache hinzu.
-3. Eine festgelegte Vertrauensperson wird benachrichtigt.
-4. Die Vertrauensperson antwortet mit einer klaren Handlungsempfehlung.
-5. Beide können den Vorgang nachvollziehbar abschließen.
+- dreistufiges Onboarding
+- Vertrauensperson verbinden
+- kompakte Startseite mit einer dominierenden Aktion
+- vier Prüfungsarten
+- Beschreibung, Betrag, Zeitdruck und Beispielanhang
+- Versand einer Prüfanfrage
+- umschaltbare Ansicht für Schutz- und Vertrauensperson
+- vier klar formulierte Handlungsempfehlungen
+- Rückmeldung und Abschluss
+- offene Prüfungen und Verlauf
+- Vertrauenskreis und Familiencode
+- Familienabo-Vorschau
+- Offline-App-Shell und Installationsmanifest
+
+## Prototyp lokal öffnen
+
+Ein einfacher lokaler Webserver reicht aus:
+
+```bash
+python3 -m http.server 8080
+```
+
+Danach im Browser öffnen:
+
+```text
+http://localhost:8080
+```
+
+Alternativ mit Node.js:
+
+```bash
+npx serve .
+```
+
+## Technische Prüfung
+
+```bash
+npm run check
+```
+
+Die GitHub Action führt dieselbe JavaScript-Prüfung bei jedem Push und Pull Request aus.
+
+## Demo-Hinweis
+
+Über den schwebenden Schalter kann zwischen **Schutzperson** und **Vertrauensperson** gewechselt werden. Der Zurücksetzen-Button löscht den lokalen Demo-Stand.
 
 ## Produktprinzipien
 
@@ -44,19 +80,19 @@ ZweiCheck ist keine automatische Sicherheitsgarantie und keine Bank-App. Die App
 - [`docs/USER-FLOWS.md`](docs/USER-FLOWS.md) – verbindliche Nutzerabläufe
 - [`docs/MVP.md`](docs/MVP.md) – Umfang der ersten echten Version
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) – festgehaltene Produktentscheidungen
+- [`docs/SCREEN-SPEC.md`](docs/SCREEN-SPEC.md) – verbindliche Spezifikation der Kernbildschirme
 
 ## Nächster Meilenstein
 
-**Phase 2: klickbarer Mobile-First-Prototyp** mit den wichtigsten Bildschirmen:
+**Phase 3: echte Konten und Vertrauensverbindungen**
 
-- Willkommen und Kontoerstellung
-- Vertrauensperson verbinden
-- Startseite
-- Prüfung anfordern
-- Ansicht der Vertrauensperson
-- Rückmeldung und Abschluss
-- Verlauf
-- Familienabo
+- technische App-Struktur festlegen
+- Registrierung und Anmeldung
+- sichere Einladungen
+- persistente Prüfanfragen
+- echte Datei-Uploads
+- Push-Benachrichtigungen
+- Datenschutz- und Sicherheitsmodell
 
 ---
 
