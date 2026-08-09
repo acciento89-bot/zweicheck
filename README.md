@@ -4,154 +4,106 @@
 
 ZweiCheck verbindet Menschen in unsicheren Situationen mit einer Person, der sie vertrauen – bevor sie zahlen, klicken, etwas installieren oder persönliche Daten weitergeben.
 
-## Produktversprechen
+## Aktueller Entwicklungsstand
 
-> Bevor du etwas tust, das sich später nur schwer rückgängig machen lässt, holst du dir mit wenigen Schritten einen zweiten Blick aus deinem Vertrauenskreis.
+**Phase 3 – echte Konten und Vertrauensverbindungen**
 
-ZweiCheck ist keine automatische Sicherheitsgarantie und keine Bank-App. Die App schafft eine bewusste Pause, bündelt die wichtigsten Informationen und ermöglicht eine schnelle menschliche Rückmeldung.
+Der Branch `phase-3-mvp` enthält eine vollständige serverfähige MVP-Grundlage:
 
-## Aktueller Stand
+- Registrierung und Anmeldung
+- sichere Cookie-Sitzungen
+- E-Mail-Bestätigung und Passwort-Reset
+- Einladung per Code oder E-Mail-Link
+- private Vertrauensverbindungen
+- echte Prüfanfragen zwischen zwei Konten
+- geschützte Bild-Uploads
+- vier Handlungsempfehlungen
+- automatisches Aktualisieren neuer Antworten
+- Verlauf und sofortiger Zugriffsentzug
+- PostgreSQL und persistente Docker-Volumes
 
-**Phase 2 – klickbarer Mobile-First-Prototyp**
+## Lokaler Start
 
-Der Prototyp funktioniert vollständig im Browser, speichert Demoänderungen lokal und kann als PWA installiert werden. Es gibt bewusst noch kein Backend und keine echte Registrierung.
+```bash
+cp .env.example .env
+docker compose up --build
+```
 
-Enthalten sind:
-
-- dreistufiges Onboarding
-- Vertrauensperson verbinden
-- kompakte Startseite mit einer dominierenden Aktion
-- vier Prüfungsarten
-- Beschreibung, Betrag, Zeitdruck und Beispielanhang
-- Versand einer Prüfanfrage
-- umschaltbare Ansicht für Schutz- und Vertrauensperson
-- vier klar formulierte Handlungsempfehlungen
-- Rückmeldung und Abschluss
-- offene Prüfungen und Verlauf
-- Vertrauenskreis und Familiencode
-- Familienabo-Vorschau
-- Offline-App-Shell und Installationsmanifest
-
-## Online-Deployment
-
-Der Prototyp ist für die Veröffentlichung unter folgender Adresse vorbereitet:
+Danach:
 
 ```text
-https://zweicheck.kamilunavo.com
+http://localhost:3000
 ```
 
-Die Anwendung wird als statische PWA in einem kleinen Nginx-Container ausgeliefert. Der Container stellt `/health` für Docker und Caddy bereit.
-
-### Bestehendes Serverprojekt aktualisieren
-
-Im Verzeichnis, in dem die anderen Kamilunavo-Dienste liegen:
+Im lokalen Standardmodus werden Bestätigungs- und Reset-Links in den Container-Logs ausgegeben:
 
 ```bash
-git clone https://github.com/acciento89-bot/zweicheck.git
+docker compose logs -f app
 ```
 
-Existiert der Ordner bereits:
+## Portainer
 
-```bash
-cd zweicheck
-git pull origin main
-cd ..
-```
-
-Den Dienst aus [`deploy/compose-snippet.yml`](deploy/compose-snippet.yml) in die bestehende `docker-compose.yml` übernehmen. Der erwartete Projektordner neben der Compose-Datei heißt `zweicheck`.
-
-Danach den Caddy-Block aus [`deploy/Caddyfile.snippet`](deploy/Caddyfile.snippet) in die bestehende Caddyfile übernehmen.
-
-Anschließend:
-
-```bash
-docker compose build --no-cache zweicheck
-docker compose up -d --force-recreate zweicheck
-docker compose restart caddy
-```
-
-### Deployment prüfen
-
-```bash
-docker compose ps zweicheck
-docker compose logs --tail=100 zweicheck
-curl -fsS https://zweicheck.kamilunavo.com/health
-```
-
-Erwartete Antwort:
+Als Git-Stack verwenden:
 
 ```text
-ok
+docker-compose.portainer.yml
 ```
 
-Danach im Browser öffnen:
+Erforderliche Variablen:
 
 ```text
-https://zweicheck.kamilunavo.com
+PROXY_NETWORK=kamilunavo-infrastructure_frontend
+POSTGRES_PASSWORD=<langes-zufälliges-passwort>
+APP_BASE_URL=https://zweicheck.kamilunavo.com
+EMAIL_MODE=log
 ```
 
-## Prototyp lokal öffnen
-
-Ein einfacher lokaler Webserver reicht aus:
-
-```bash
-python3 -m http.server 8080
-```
-
-Danach im Browser öffnen:
+Für echten E-Mail-Versand zusätzlich:
 
 ```text
-http://localhost:8080
+EMAIL_MODE=smtp
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_FROM=ZweiCheck <noreply@kamilunavo.com>
 ```
 
-Alternativ mit Node.js:
+Caddy muss auf den neuen App-Port zeigen:
 
-```bash
-npx serve .
+```caddy
+zweicheck.kamilunavo.com {
+    encode zstd gzip
+    reverse_proxy zweicheck:3000
+}
 ```
 
-## Technische Prüfung
+## Prüfung
 
 ```bash
+npm install
 npm run check
-docker build -t zweicheck:test .
+npm test
 ```
 
-Die GitHub Action prüft JavaScript, erforderliche Dateien, den Docker-Build, den Healthcheck und die ausgelieferte Startseite bei jedem Push und Pull Request.
+Die GitHub Action startet zusätzlich PostgreSQL, wendet das Schema an, führt einen Server-Smoke-Test aus und baut das Docker-Image.
 
-## Demo-Hinweis
+## Sicherheitsgrenzen
 
-Über den schwebenden Schalter kann zwischen **Schutzperson** und **Vertrauensperson** gewechselt werden. Der Zurücksetzen-Button löscht den lokalen Demo-Stand.
-
-## Produktprinzipien
-
-1. **Eine Hauptaktion:** „Prüfung starten“.
-2. **Mensch vor Maschine:** Die zweite Einschätzung kommt aus dem Vertrauenskreis.
-3. **Keine falsche Sicherheit:** Formulierungen wie „garantiert sicher“ oder „freigegeben“ werden vermieden.
-4. **Ruhe statt Alarmismus:** Klare Sprache, große Bedienelemente, wenige Entscheidungen.
-5. **Privatheit als Standard:** Nur ausdrücklich verbundene Personen sehen einen Vorgang.
-6. **Kleiner Start:** Kein Bankzugriff, kein soziales Netzwerk und keine unnötigen Zusatzmodule im MVP.
+- ZweiCheck gibt keine Sicherheitsgarantie.
+- Keine TANs, Passwörter oder vollständigen Kartendaten teilen.
+- Keine öffentliche Nutzersuche.
+- Keine Bank- oder Versicherungsintegration im MVP.
+- Push-Benachrichtigungen folgen nach der stabilen Grundversion.
 
 ## Dokumentation
 
-- [`docs/BRAND.md`](docs/BRAND.md) – Marke, Farben, Typografie und Tonalität
-- [`docs/PRODUCT.md`](docs/PRODUCT.md) – Zielgruppe, Nutzen und Geschäftsmodell
-- [`docs/USER-FLOWS.md`](docs/USER-FLOWS.md) – verbindliche Nutzerabläufe
-- [`docs/MVP.md`](docs/MVP.md) – Umfang der ersten echten Version
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) – festgehaltene Produktentscheidungen
-- [`docs/SCREEN-SPEC.md`](docs/SCREEN-SPEC.md) – verbindliche Spezifikation der Kernbildschirme
-
-## Nächster Meilenstein
-
-**Phase 3: echte Konten und Vertrauensverbindungen**
-
-- technische App-Struktur festlegen
-- Registrierung und Anmeldung
-- sichere Einladungen
-- persistente Prüfanfragen
-- echte Datei-Uploads
-- Push-Benachrichtigungen
-- Datenschutz- und Sicherheitsmodell
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- [`docs/PRIVACY-AND-DELETION.md`](docs/PRIVACY-AND-DELETION.md)
+- [`docs/BRAND.md`](docs/BRAND.md)
+- [`docs/PRODUCT.md`](docs/PRODUCT.md)
+- [`docs/USER-FLOWS.md`](docs/USER-FLOWS.md)
 
 ---
 

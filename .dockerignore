@@ -1,7 +1,10 @@
 .git
 .github
-docs
-README.md
 node_modules
-npm-debug.log*
-.DS_Store
+npm-debug.log
+.env
+.env.*
+data
+coverage
+README.md
+docs

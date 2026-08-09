@@ -1,10 +1,17 @@
-FROM nginx:1.27-alpine
+FROM node:22-alpine
 
-COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-COPY index.html app.css app.js manifest.webmanifest sw.js /usr/share/nginx/html/
-COPY assets /usr/share/nginx/html/assets
+RUN apk add --no-cache tini wget
+WORKDIR /app
 
-EXPOSE 80
+COPY package.json ./
+RUN npm install --omit=dev
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://127.0.0.1/health >/dev/null || exit 1
+COPY . .
+RUN mkdir -p /data/uploads && chown -R node:node /app /data
+
+USER node
+ENV NODE_ENV=production
+EXPOSE 3000
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "server/index.js"]

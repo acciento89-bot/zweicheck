@@ -1,22 +1,69 @@
 services:
+  db:
+    image: postgres:17-alpine
+    container_name: zweicheck-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zweicheck
+      POSTGRES_USER: zweicheck
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - zweicheck_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zweicheck -d zweicheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
   zweicheck:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: zweicheck
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      APP_BASE_URL: ${APP_BASE_URL:-https://zweicheck.kamilunavo.com}
+      DATABASE_URL: postgresql://zweicheck:${POSTGRES_PASSWORD}@db:5432/zweicheck
+      DATABASE_SSL: "false"
+      TRUST_PROXY: "1"
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_TTL_DAYS: "30"
+      UPLOAD_DIR: /data/uploads
+      MAX_UPLOAD_BYTES: "8388608"
+      EMAIL_MODE: ${EMAIL_MODE:-log}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-ZweiCheck <noreply@kamilunavo.com>}
     expose:
-      - "80"
+      - "3000"
+    volumes:
+      - zweicheck_uploads:/data/uploads
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
+      - backend
       - proxy
 
+volumes:
+  zweicheck_postgres:
+  zweicheck_uploads:
+
 networks:
+  backend:
+    internal: true
   proxy:
     external: true
     name: ${PROXY_NETWORK}
