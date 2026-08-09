@@ -43,6 +43,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-ZweiCheck <noreply@kamilunavo.com>}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:noreply@kamilunavo.com}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     expose:
       - "3000"
     volumes:

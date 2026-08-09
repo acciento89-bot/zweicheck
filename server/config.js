@@ -29,6 +29,11 @@ const config = {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || 'ZweiCheck <noreply@localhost>'
+  },
+  push: {
+    subject: process.env.VAPID_SUBJECT || 'mailto:noreply@kamilunavo.com',
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || ''
   }
 };
 
