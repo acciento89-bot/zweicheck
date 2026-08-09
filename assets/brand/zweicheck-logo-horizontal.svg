@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" role="img" aria-labelledby="title desc">
+  <title id="title">ZweiCheck Logo</title>
+  <desc id="desc">ZweiCheck Wortmarke mit stilisierter Zwei, Häkchen und dem Claim Gemeinsam prüfen. Sicher handeln.</desc>
+  <defs>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#19E0D2"/>
+      <stop offset="1" stop-color="#00AFA8"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(24 24)">
+    <rect width="312" height="312" rx="72" fill="#0D1B2A"/>
+    <rect x="12" y="12" width="288" height="288" rx="62" fill="none" stroke="#1B2E4B" stroke-width="3"/>
+    <text x="42" y="247" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="242" font-weight="750" letter-spacing="-16">2</text>
+    <path d="M199 58c47 4 83 44 83 92v35c0 53-41 96-93 100" fill="none" stroke="url(#teal)" stroke-width="24" stroke-linecap="round"/>
+    <path d="M174 194l29 28 57-68" fill="none" stroke="url(#teal)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="382" y="178" font-size="112" font-weight="760" letter-spacing="-5" fill="#0D1B2A">Zwei<tspan fill="#00BFB5">Check</tspan></text>
+    <text x="390" y="250" font-size="38" font-weight="450" fill="#1B2E4B">Gemeinsam prüfen. Sicher handeln.</text>
+  </g>
+</svg>
