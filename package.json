@@ -9,6 +9,7 @@
     "migrate": "node server/migrate.js",
     "check": "node --check app.js && node --check draft-guard.js && node --check deep-link.js && node --check push-client.js && node --check activity-center.js && node --check sw.js && find server tests scripts -name '*.js' -print0 | xargs -0 -n1 node --check",
     "test": "node --test",
+    "test:activity-db": "node scripts/test-activity-db.js",
     "generate-vapid": "node scripts/generate-vapid.js"
   },
   "engines": {
