@@ -9,6 +9,13 @@ from pathlib import Path
 
 root = Path.cwd().resolve()
 chunk_dir = root / "tools" / "bootstrap"
+workflow_dir = root / ".github" / "workflows"
+workflow_files = {
+    path.relative_to(workflow_dir): path.read_bytes()
+    for path in workflow_dir.rglob("*")
+    if path.is_file()
+}
+
 chunk_names = [*(f"chunk{index:02d}" for index in range(7)), "chunk07a", "chunk07b"]
 encoded = "".join((chunk_dir / name).read_text().strip() for name in chunk_names)
 
@@ -28,10 +35,17 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
             raise RuntimeError(f"Unsafe archive path: {member.name}")
     tar.extractall(root)
 
+# GitHub Actions darf mit dem Laufzeit-Token keine Workflow-Dateien ändern.
+# Deshalb bleiben die vorhandenen Workflows in diesem Commit unverändert.
+shutil.rmtree(workflow_dir, ignore_errors=True)
+for relative_path, data in workflow_files.items():
+    destination = workflow_dir / relative_path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(data)
+
 shutil.rmtree(root / "deploy", ignore_errors=True)
 shutil.rmtree(chunk_dir, ignore_errors=True)
 (root / "tools" / "phase3-bootstrap.py").unlink(missing_ok=True)
-(root / ".github" / "workflows" / "phase3-bootstrap.yml").unlink(missing_ok=True)
 try:
     (root / "tools").rmdir()
 except OSError:
