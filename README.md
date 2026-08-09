@@ -6,7 +6,7 @@ ZweiCheck verbindet Menschen in unsicheren Situationen mit einer Person, der sie
 
 ## Aktueller Entwicklungsstand
 
-**Phase 3.2 – Benachrichtigungen und echte Vertrauensverbindungen**
+**Phase 3.3 – Aktivitätscenter und mehrstufige Benachrichtigungen**
 
 Die serverfähige MVP-Grundlage enthält:
 
@@ -22,6 +22,9 @@ Die serverfähige MVP-Grundlage enthält:
 - gestaltete Transaktions-E-Mails
 - E-Mail-Benachrichtigungen bei Prüfanfragen und Antworten
 - optionale Web-Push-Benachrichtigungen pro Gerät
+- persistentes Aktivitätscenter mit Ungelesen-Zähler
+- direkte Navigation von Aktivitäten zur passenden Prüfanfrage
+- Ereignisse für Einladungen, Antworten, Abschlüsse und beendete Verbindungen
 - Verlauf und sofortiger Zugriffsentzug
 - PostgreSQL und persistente Docker-Volumes
 
@@ -98,15 +101,31 @@ zweicheck.kamilunavo.com {
 }
 ```
 
+## Aktivitätscenter
+
+Das Aktivitätscenter wird automatisch aus Datenbankereignissen gefüllt. Es speichert ausschließlich kurze, generische Hinweise und übernimmt keine Beschreibungen, Antwortnotizen oder Bilder aus Prüfanfragen.
+
+Enthalten sind:
+
+- neue Prüfanfragen
+- eingegangene Antworten
+- abgeschlossene Prüfungen
+- neue, angenommene und abgelehnte Einladungen
+- beendete Vertrauensverbindungen
+- Markieren einzelner oder aller Aktivitäten als gelesen
+- Ausblenden einzelner Einträge
+- Filter für alle und ungelesene Ereignisse
+
 ## Prüfung
 
 ```bash
 npm install
+npm run prepare-runtime
 npm run check
 npm test
 ```
 
-Die GitHub Action startet zusätzlich PostgreSQL, wendet das Schema an, führt einen Server-Smoke-Test aus und baut das Docker-Image.
+Die GitHub Action startet zusätzlich PostgreSQL, wendet das Schema samt Ereignis-Triggern an, führt einen Server-Smoke-Test aus und baut das Docker-Image.
 
 ## Sicherheitsgrenzen
 
@@ -114,7 +133,7 @@ Die GitHub Action startet zusätzlich PostgreSQL, wendet das Schema an, führt e
 - Keine TANs, Passwörter oder vollständigen Kartendaten teilen.
 - Keine öffentliche Nutzersuche.
 - Keine Bank- oder Versicherungsintegration im MVP.
-- Push-Nachrichten enthalten keine Beschreibungen, Bilder oder anderen sensiblen Inhalte.
+- Push-Nachrichten und Aktivitäten enthalten keine Beschreibungen, Bilder oder anderen sensiblen Inhalte.
 
 ## Dokumentation
 
