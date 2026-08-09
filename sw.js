@@ -1,10 +1,11 @@
-const CACHE_NAME = 'zweicheck-phase3-v5';
+const CACHE_NAME = 'zweicheck-phase3-v6';
 const SHELL = [
   '/',
   '/index.html',
   '/app.css',
   '/app.js?v=5',
   '/deep-link.js?v=1',
+  '/push-client.js?v=1',
   '/manifest.webmanifest',
   '/assets/brand/zweicheck-mark.svg',
   '/assets/brand/zweicheck-logo-horizontal.svg'
@@ -35,4 +36,51 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
   );
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'ZweiCheck', body: event.data?.text() || 'Es gibt eine neue Benachrichtigung.' };
+  }
+
+  const title = data.title || 'ZweiCheck';
+  const options = {
+    body: data.body || 'Es gibt eine neue Benachrichtigung.',
+    icon: '/assets/brand/zweicheck-mark.svg',
+    badge: '/assets/brand/zweicheck-mark.svg',
+    tag: data.tag || 'zweicheck-notification',
+    renotify: true,
+    data: {
+      url: data.url || '/',
+      checkId: data.checkId || null,
+      eventType: data.eventType || null
+    }
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const requested = event.notification.data?.url || '/';
+  let targetUrl = new URL('/', self.location.origin).href;
+
+  try {
+    const parsed = new URL(requested, self.location.origin);
+    if (parsed.origin === self.location.origin) targetUrl = parsed.href;
+  } catch {
+    // Ungültige Ziele führen sicher zur Startseite.
+  }
+
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if ('navigate' in client) await client.navigate(targetUrl);
+      if ('focus' in client) return client.focus();
+    }
+    return self.clients.openWindow(targetUrl);
+  })());
 });
