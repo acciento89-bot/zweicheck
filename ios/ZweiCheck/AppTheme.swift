@@ -6,6 +6,7 @@ enum AppTheme {
     static let orange = Color(red: 0.900, green: 0.420, blue: 0.060)
     static let background = Color(uiColor: .systemGroupedBackground)
     static let card = Color(uiColor: .secondarySystemGroupedBackground)
+    static let inputBackground = Color(uiColor: .systemBackground)
 }
 
 struct SeniorPrimaryButtonStyle: ButtonStyle {
@@ -29,5 +30,25 @@ struct SeniorSecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(AppTheme.navy)
             .background(AppTheme.card.opacity(configuration.isPressed ? 0.7 : 1), in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.15)))
+    }
+}
+
+struct SeniorInputSurface: ViewModifier {
+    let focused: Bool
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(AppTheme.inputBackground, in: RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(focused ? AppTheme.teal : AppTheme.navy.opacity(0.28), lineWidth: focused ? 2.5 : 1.5)
+            }
+    }
+}
+
+extension View {
+    func seniorInputSurface(focused: Bool = false, cornerRadius: CGFloat = 14) -> some View {
+        modifier(SeniorInputSurface(focused: focused, cornerRadius: cornerRadius))
     }
 }
