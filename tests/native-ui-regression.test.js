@@ -67,6 +67,15 @@ test('Premium Family is clearly differentiated from the free plan and supports b
   assert.match(account, /Nutzungsbedingungen/);
 });
 
+test('dark mode uses adaptive foreground colors instead of fixed navy text', () => {
+  assert.match(theme, /static let navySolid/);
+  assert.match(theme, /traits\.userInterfaceStyle == \.dark/);
+  assert.match(theme, /secondarySystemGroupedBackground/);
+  assert.match(theme, /AppTheme\.separator/);
+  assert.match(account, /background\(AppTheme\.navySolid/);
+  assert.match(onboarding, /accent: AppTheme\.navySolid/);
+});
+
 test('review actions use distinct ZweiCheck web colors', () => {
   assert.match(theme, /enum ZweiCheckActionTone/);
   assert.match(checks, /case \.doNotAct: \.danger/);
@@ -75,8 +84,8 @@ test('review actions use distinct ZweiCheck web colors', () => {
   assert.match(checks, /case \.callMe: \.navy/);
 });
 
-test('native release build number is 8 for app and share extension', () => {
-  const matches = project.match(/CURRENT_PROJECT_VERSION: 8/g) || [];
+test('native release build number is 9 for app and share extension', () => {
+  const matches = project.match(/CURRENT_PROJECT_VERSION: 9/g) || [];
   assert.equal(matches.length, 2);
   assert.match(project, /CFBundleShortVersionString: \$\(MARKETING_VERSION\)/);
   assert.match(project, /CFBundleVersion: \$\(CURRENT_PROJECT_VERSION\)/);
