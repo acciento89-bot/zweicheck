@@ -2,18 +2,25 @@ import Foundation
 
 final class APIClient {
     private let baseURL = URL(string: "https://zweicheck.kamilunavo.com")!
+    private let cookieName = "zc_session"
     private let cookieStorage = HTTPCookieStorage()
     private let keychain = KeychainSessionStore()
+    private var sessionToken: String?
+
     private lazy var session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = cookieStorage
         configuration.httpShouldSetCookies = true
+        configuration.httpCookieAcceptPolicy = .always
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
         return URLSession(configuration: configuration)
     }()
 
-    init() { restoreSessionCookie() }
+    init() {
+        sessionToken = keychain.load()
+        restoreSessionCookie()
+    }
 
     func me() async throws -> APIUser { try await request("/api/auth/me", as: AuthEnvelope.self).user }
 
@@ -31,8 +38,7 @@ final class APIClient {
 
     func logout() async {
         _ = try? await requestData("/api/auth/logout", method: "POST")
-        cookieStorage.removeCookies(since: .distantPast)
-        keychain.clear()
+        clearSessionCredentials()
     }
 
     func resendVerification() async throws { let _: VerificationResult = try await request("/api/auth/resend-verification", method: "POST") }
@@ -121,8 +127,7 @@ final class APIClient {
 
     func deleteAccount(password: String) async throws {
         _ = try await requestData("/api/account", method: "DELETE", json: ["password": password])
-        cookieStorage.removeCookies(since: .distantPast)
-        keychain.clear()
+        clearSessionCredentials()
     }
 
     private func request<T: Decodable>(_ path: String, method: String = "GET", json: [String: Any]? = nil, as type: T.Type = T.self) async throws -> T {
@@ -141,12 +146,33 @@ final class APIClient {
         return try await perform(request)
     }
 
-    private func perform(_ request: URLRequest) async throws -> Data {
+    private func perform(_ originalRequest: URLRequest) async throws -> Data {
+        var request = originalRequest
+
+        // URLSession's cookie handling with an ephemeral/custom cookie store isn't reliable
+        // enough for our HttpOnly server session. Attach the persisted token explicitly.
+        if request.value(forHTTPHeaderField: "Cookie") == nil,
+           let token = sessionToken ?? keychain.load(),
+           !token.isEmpty {
+            sessionToken = token
+            request.setValue("\(cookieName)=\(token)", forHTTPHeaderField: "Cookie")
+        }
+
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw APIClientError.message("Keine gültige Serverantwort.") }
+        guard let http = response as? HTTPURLResponse else {
+            throw APIClientError.message("Keine gültige Serverantwort.")
+        }
+
+        captureSessionCookie(from: http, requestURL: request.url)
+
         guard (200..<300).contains(http.statusCode) else {
-            if let envelope = try? decode(APIErrorEnvelope.self, from: data) { throw APIClientError.message(envelope.error) }
-            throw APIClientError.message("ZweiCheck konnte die Anfrage nicht abschließen.")
+            let serverMessage = (try? decode(APIErrorEnvelope.self, from: data))?.error
+                ?? "ZweiCheck konnte die Anfrage nicht abschließen."
+            if http.statusCode == 401 {
+                clearSessionCredentials()
+                throw APIClientError.unauthorized(serverMessage)
+            }
+            throw APIClientError.message(serverMessage)
         }
         return data
     }
@@ -168,22 +194,63 @@ final class APIClient {
         body.append("\r\n".data(using: .utf8)!)
     }
 
+    private func captureSessionCookie(from response: HTTPURLResponse, requestURL: URL?) {
+        guard let url = requestURL else { return }
+        var headerFields: [String: String] = [:]
+        for (key, value) in response.allHeaderFields {
+            headerFields[String(describing: key)] = String(describing: value)
+        }
+
+        let responseCookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: url)
+        guard let cookie = responseCookies.first(where: { $0.name == cookieName }) else { return }
+        cookieStorage.setCookie(cookie)
+        sessionToken = cookie.value
+        try? keychain.save(cookie.value)
+    }
+
     private func persistSessionCookie() {
-        guard let cookie = cookieStorage.cookies(for: baseURL)?.first(where: { $0.name == "zc_session" }) else { return }
+        if let token = sessionToken, !token.isEmpty {
+            try? keychain.save(token)
+            return
+        }
+        guard let cookie = cookieStorage.cookies(for: baseURL)?.first(where: { $0.name == cookieName }) else { return }
+        sessionToken = cookie.value
         try? keychain.save(cookie.value)
     }
 
     private func restoreSessionCookie() {
-        guard let value = keychain.load(), let host = baseURL.host else { return }
+        guard let value = sessionToken ?? keychain.load(), let host = baseURL.host else { return }
+        sessionToken = value
         let properties: [HTTPCookiePropertyKey: Any] = [
-            .name: "zc_session", .value: value, .domain: host, .path: "/", .secure: "TRUE",
+            .name: cookieName,
+            .value: value,
+            .domain: host,
+            .path: "/",
+            .secure: "TRUE",
             .expires: Date().addingTimeInterval(30 * 24 * 60 * 60)
         ]
         if let cookie = HTTPCookie(properties: properties) { cookieStorage.setCookie(cookie) }
     }
+
+    private func clearSessionCredentials() {
+        sessionToken = nil
+        cookieStorage.removeCookies(since: .distantPast)
+        keychain.clear()
+    }
 }
 
 enum APIClientError: LocalizedError {
+    case unauthorized(String)
     case message(String)
-    var errorDescription: String? { if case .message(let text) = self { text } else { nil } }
+
+    var isUnauthorized: Bool {
+        if case .unauthorized = self { return true }
+        return false
+    }
+
+    var errorDescription: String? {
+        switch self {
+        case .unauthorized(let text), .message(let text): text
+        }
+    }
 }
