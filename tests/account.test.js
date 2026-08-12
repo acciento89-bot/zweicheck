@@ -12,6 +12,7 @@ const client = fs.readFileSync(path.join(root, 'account-client.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'account.css'), 'utf8');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+const pollingPatch = fs.readFileSync(path.join(root, 'scripts', 'patch-polling.js'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
 
@@ -51,14 +52,24 @@ test('senior-first account UI uses explicit confirmation and no mutation observe
   assert.match(css, /focus-visible/);
 });
 
+test('account view survives background polling without losing open state or input', () => {
+  assert.match(client, /data-zc-account-privacy/);
+  assert.match(pollingPatch, /#app \[data-zc-account-privacy\]/);
+  assert.match(pollingPatch, /#app \[data-zc-polling-lock\]/);
+  assert.match(pollingPatch, /if \(!pollingLocked\) render\(\)/);
+  assert.match(pollingPatch, /patchedCodeV1/);
+});
+
 test('account assets are shipped through the existing activity registration path', () => {
   assert.match(activity, /registerAccountRoutes/);
   assert.match(activity, /account-client\.js/);
   assert.match(activity, /account\.css/);
   assert.match(index, /account-privacy-v1/);
+  assert.match(index, /app\.js\?v=6/);
   assert.match(index, /account-client\.js\?v=1/);
   assert.match(index, /account\.css\?v=1/);
-  assert.match(serviceWorker, /zweicheck-phase3-v11/);
+  assert.match(serviceWorker, /zweicheck-phase3-v12/);
+  assert.match(serviceWorker, /app\.js\?v=6/);
   assert.match(serviceWorker, /account-client\.js\?v=1/);
   assert.match(serviceWorker, /account\.css\?v=1/);
 });
@@ -66,6 +77,7 @@ test('account assets are shipped through the existing activity registration path
 test('production start and Docker lifecycle stay unchanged', () => {
   assert.equal(packageJson.scripts.start, 'node scripts/patch-server-push.js && node server/index.js');
   assert.match(dockerfile, /node scripts\/patch-server-push\.js/);
+  assert.match(dockerfile, /node scripts\/patch-polling\.js/);
   assert.doesNotMatch(packageJson.scripts.start, /account/);
   assert.doesNotMatch(dockerfile, /patch-server-account/);
 });
