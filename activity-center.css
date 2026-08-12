@@ -1,0 +1,361 @@
+.zc-activity-button {
+  position: fixed;
+  z-index: 1450;
+  right: 16px;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 17px;
+  display: grid;
+  place-items: center;
+  background: #061a2f;
+  color: white;
+  box-shadow: 0 14px 34px rgba(6,26,47,.28);
+  font: inherit;
+  cursor: pointer;
+}
+
+.zc-activity-button[hidden] { display: none !important; }
+.zc-activity-button > span { font-size: 22px; line-height: 1; }
+
+.zc-activity-button b {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid white;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #f26b38;
+  color: white;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.zc-activity-button b[hidden] { display: none; }
+
+.zc-activity-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+}
+
+.zc-activity-overlay[hidden] { display: none !important; }
+
+.zc-activity-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6,26,47,.58);
+  backdrop-filter: blur(4px);
+}
+
+.zc-activity-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(460px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 24px;
+  background: #f6f9fb;
+  box-shadow: 0 24px 70px rgba(6,26,47,.34);
+}
+
+.zc-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 20px 18px;
+  background: #061a2f;
+  color: white;
+}
+
+.zc-activity-header h2 {
+  margin: 3px 0 0;
+  color: white;
+  font-size: 25px;
+  line-height: 1.15;
+}
+
+.zc-activity-eyebrow {
+  display: block;
+  color: #91d8d4;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.zc-activity-close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.09);
+  color: white;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zc-activity-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+}
+
+.zc-activity-intro {
+  margin: 0 0 14px;
+  color: #52677f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.zc-activity-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid #dce6ed;
+  border-radius: 15px;
+  background: white;
+  color: #52677f;
+  font-size: 13px;
+}
+
+.zc-activity-summary strong {
+  color: #061a2f;
+  font-size: 21px;
+}
+
+.zc-activity-summary button,
+.zc-activity-notice button,
+.zc-activity-more {
+  border: 1px solid #9ccfce;
+  border-radius: 11px;
+  padding: 9px 12px;
+  background: #edf9f8;
+  color: #0d6663;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.zc-activity-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.zc-activity-filters button {
+  border: 1px solid #d8e3ea;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: white;
+  color: #52677f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.zc-activity-filters button.active {
+  border-color: #16aaa4;
+  background: #e5f7f5;
+  color: #0a6c68;
+}
+
+.zc-activity-list {
+  display: grid;
+  gap: 10px;
+}
+
+.zc-activity-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  overflow: hidden;
+  border: 1px solid #dce6ed;
+  border-radius: 17px;
+  background: white;
+  box-shadow: 0 7px 20px rgba(6,26,47,.045);
+}
+
+.zc-activity-card.is-unread {
+  border-color: rgba(22,170,164,.55);
+  background: linear-gradient(90deg, #ecfaf8, white 42%);
+}
+
+.zc-activity-main {
+  min-width: 0;
+  border: 0;
+  padding: 14px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.zc-activity-icon {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: #dff5f3;
+  color: #061a2f;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.zc-activity-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.zc-activity-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #10233f;
+}
+
+.zc-activity-title-row strong {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.zc-activity-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f26b38;
+}
+
+.zc-activity-body {
+  color: #455b73;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.zc-activity-copy small {
+  color: #8190a2;
+  font-size: 11px;
+}
+
+.zc-activity-archive {
+  border: 0;
+  border-left: 1px solid #e2e9ee;
+  background: rgba(244,247,250,.84);
+  color: #8695a7;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.zc-activity-archive:disabled { opacity: .45; cursor: default; }
+
+.zc-activity-empty,
+.zc-activity-loading,
+.zc-activity-notice {
+  min-height: 210px;
+  border: 1px dashed #d4e0e7;
+  border-radius: 17px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 22px;
+  background: rgba(255,255,255,.72);
+  color: #66798e;
+  text-align: center;
+}
+
+.zc-activity-empty > span {
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: #e7f7f5;
+  color: #0c7772;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.zc-activity-empty p,
+.zc-activity-loading p,
+.zc-activity-notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.zc-activity-loading > span {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #dbe5eb;
+  border-top-color: #16aaa4;
+  border-radius: 50%;
+  animation: zc-activity-spin .8s linear infinite;
+}
+
+.zc-activity-more {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 14px;
+}
+
+body.zc-activity-open { overflow: hidden; }
+
+@keyframes zc-activity-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (min-width: 900px) {
+  .zc-activity-button {
+    bottom: 22px;
+    right: 22px;
+  }
+}
+
+@media (max-width: 620px) {
+  .zc-activity-panel {
+    top: auto;
+    right: 6px;
+    bottom: 6px;
+    left: 6px;
+    width: auto;
+    height: min(82vh, 720px);
+    border-radius: 22px;
+  }
+
+  .zc-activity-header {
+    padding: 18px 16px 15px;
+  }
+
+  .zc-activity-content {
+    padding: 14px;
+  }
+}

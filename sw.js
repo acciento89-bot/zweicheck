@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zweicheck-phase3-v6';
+const CACHE_NAME = 'zweicheck-phase3-v7';
 const SHELL = [
   '/',
   '/index.html',
@@ -6,6 +6,8 @@ const SHELL = [
   '/app.js?v=5',
   '/deep-link.js?v=1',
   '/push-client.js?v=1',
+  '/activity-center.css?v=2',
+  '/activity-center.js?v=2',
   '/manifest.webmanifest',
   '/assets/brand/zweicheck-mark.svg',
   '/assets/brand/zweicheck-logo-horizontal.svg'
