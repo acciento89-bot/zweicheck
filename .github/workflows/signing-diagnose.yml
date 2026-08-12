@@ -25,12 +25,15 @@ jobs:
           set -euo pipefail
           printf '%s' "$ASC_PRIVATE_KEY_B64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
           chmod 600 "$RUNNER_TEMP/AuthKey.p8"
-      - name: Python-Abhängigkeiten
-        run: python3 -m pip install --quiet pyjwt cryptography requests
+      - name: Python-Umgebung
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/asc-venv"
+          "$RUNNER_TEMP/asc-venv/bin/pip" install --quiet pyjwt cryptography requests
       - name: Apple Provisioning API prüfen
         shell: bash
         run: |
-          python3 - <<'PY'
+          "$RUNNER_TEMP/asc-venv/bin/python" - <<'PY'
           import os, time, jwt, requests
           key = open(os.environ['RUNNER_TEMP'] + '/AuthKey.p8', 'r', encoding='utf-8').read()
           token = jwt.encode(
