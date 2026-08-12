@@ -66,10 +66,12 @@ test('account assets are shipped through the existing activity registration path
   assert.match(activity, /account\.css/);
   assert.match(index, /account-privacy-v1/);
   assert.match(index, /app\.js\?v=6/);
+  assert.match(index, /app\.css\?v=2/);
   assert.match(index, /account-client\.js\?v=1/);
   assert.match(index, /account\.css\?v=1/);
-  assert.match(serviceWorker, /zweicheck-phase3-v12/);
+  assert.match(serviceWorker, /zweicheck-phase3-v13/);
   assert.match(serviceWorker, /app\.js\?v=6/);
+  assert.match(serviceWorker, /app\.css\?v=2/);
   assert.match(serviceWorker, /account-client\.js\?v=1/);
   assert.match(serviceWorker, /account\.css\?v=1/);
 });

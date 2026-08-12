@@ -1,13 +1,17 @@
 {
+  "id": "/",
   "name": "ZweiCheck",
   "short_name": "ZweiCheck",
   "description": "Gemeinsam prüfen. Sicher handeln.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#061a2f",
   "theme_color": "#061a2f",
   "lang": "de",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/assets/brand/zweicheck-mark.svg",
