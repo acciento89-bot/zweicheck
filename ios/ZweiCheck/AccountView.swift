@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AccountView: View {
     let model: AppModel
+    @AppStorage("zweicheck.onboarding.completed") private var onboardingCompleted = false
     @State private var password = ""
     @State private var understandsDeletion = false
     @State private var confirmDelete = false
@@ -13,6 +14,7 @@ struct AccountView: View {
             Section("Dein Konto") {
                 LabeledContent("Name", value: model.user?.name ?? "–")
                 LabeledContent("E-Mail", value: model.user?.email ?? "–")
+                LabeledContent("Tarif", value: model.premium.isPremiumFamily ? "Premium Familie" : "Kostenlos")
                 if model.user?.emailVerified == false {
                     Button("Bestätigungs-E-Mail erneut senden") {
                         Task { await model.resendVerification() }
@@ -34,7 +36,7 @@ struct AccountView: View {
                             Text("ZweiCheck Premium Familie")
                                 .font(.title3.bold())
                                 .foregroundStyle(AppTheme.navy)
-                            Text("Ein Jahresabo für die Familie")
+                            Text("Mehr automatische Sicherheit für die Familie")
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -53,9 +55,10 @@ struct AccountView: View {
                         .foregroundStyle(AppTheme.teal)
 
                     VStack(alignment: .leading, spacing: 9) {
-                        premiumFeature("Für die Familie gedacht", symbol: "person.3")
-                        premiumFeature("Käufe jederzeit wiederherstellbar", symbol: "arrow.clockwise")
-                        premiumFeature("Abrechnung sicher über den App Store", symbol: "checkmark.shield")
+                        premiumFeature("Bis zu 3 Bilder pro Prüfung statt 1", symbol: "photo.on.rectangle.angled")
+                        premiumFeature("Automatische Erinnerung nach 5–120 Minuten", symbol: "bell.badge")
+                        premiumFeature("Automatisch eine zweite Vertrauensperson fragen", symbol: "person.2.badge.gearshape")
+                        premiumFeature("Für Apple Familienfreigabe vorbereitet", symbol: "person.3")
                     }
 
                     if model.premium.isPremiumFamily {
@@ -91,7 +94,16 @@ struct AccountView: View {
             } header: {
                 Text("Premium")
             } footer: {
-                Text("Das Jahresabo verlängert sich automatisch, bis es in den Apple-Aboeinstellungen gekündigt wird.")
+                Text("Kostenlos bleiben Prüfanfragen, Antworten, Push-Benachrichtigungen und ein Bild pro Prüfung. Premium ergänzt die erweiterten Familien- und Automatikfunktionen.")
+            }
+
+            Section("So funktioniert ZweiCheck") {
+                Button {
+                    onboardingCompleted = false
+                } label: {
+                    Label("Einführung noch einmal ansehen", systemImage: "graduationcap.fill")
+                }
+                .buttonStyle(SeniorSecondaryButtonStyle())
             }
 
             Section("Benachrichtigungen") {
