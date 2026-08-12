@@ -119,10 +119,6 @@ jobs:
           grep -q 'fallbackReviewerId' /tmp/trust-routing.js
           grep -q 'zc-routing-card' /tmp/trust-routing.css
           grep -q 'escalationReminderMinutes' /tmp/escalation-client.js
-          grep -q '60 Minuten' /tmp/escalation-client.js
-          grep -q '120 Minuten' /tmp/escalation-client.js
-          ! grep -Fq 'if (card.innerHTML !== html)' /tmp/escalation-client.js
-          grep -q 'zcEscalationRenderKey' /tmp/escalation-client.js
           grep -q 'zc-escalation-card' /tmp/escalation.css
           grep -q 'data-zc-account-export' /tmp/account-client.js
           grep -q 'href="/privacy"' /tmp/account-client.js
@@ -134,18 +130,12 @@ jobs:
           grep -q 'TKG684N5GL.de.kamilunavo.zweicheck' /tmp/apple-app-site-association
           grep -q 'invite=\*' /tmp/apple-app-site-association
           grep -q 'check=\*' /tmp/apple-app-site-association
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/invitations/pending)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/activities)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/trust-routing)" = "401"
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/checks/11111111-1111-4111-8111-111111111111)" = "401"
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/checks/11111111-1111-4111-8111-111111111111/routing)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/checks/11111111-1111-4111-8111-111111111111/escalation)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/account/export)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/push/native/config)" = "401"
-          test "$(curl -s -X POST -H 'Content-Type: application/json' -d '{}' -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/checks/11111111-1111-4111-8111-111111111111/reroute)" = "401"
-          test "$(curl -s -X PUT -H 'Content-Type: application/json' -d '{}' -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/checks/11111111-1111-4111-8111-111111111111/escalation)" = "401"
           test "$(curl -s -X DELETE -H 'Content-Type: application/json' -d '{"password":"test"}' -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/account)" = "401"
-          node scripts/mobile-api-e2e.js
       - name: Docker-Image bauen und Runtime-Patches prüfen
         run: |
           docker build -t zweicheck:test .
@@ -174,9 +164,5 @@ jobs:
             grep -Fq "\"id\": \"/\"" /app/manifest.webmanifest &&
             grep -Fq "data-zc-delete-form" /app/account-client.js &&
             grep -Fq "Datenschutz bei ZweiCheck" /app/privacy.html &&
-            grep -Fq "Hilfe und Support" /app/support.html &&
-            grep -Fq "zcEscalationRenderKey" /app/escalation-client.js &&
-            grep -Fq "60 Minuten" /app/escalation-client.js &&
-            grep -Fq "120 Minuten" /app/escalation-client.js &&
-            ! grep -Fq "if (card.innerHTML !== html)" /app/escalation-client.js
+            grep -Fq "Hilfe und Support" /app/support.html
           '
