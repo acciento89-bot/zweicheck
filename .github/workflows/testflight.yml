@@ -81,8 +81,6 @@ jobs:
                   raise SystemExit(f"{label} fehlgeschlagen: HTTP {response.status_code}\n{response.text[:3000]}")
               return response.json() if response.content else None
 
-          # Nur von CI erzeugte Apple-Distribution-Zertifikate aufräumen.
-          # Das vorhandene persönliche Distribution-Zertifikat bleibt unangetastet.
           cert_list = require(requests.get(base + '/certificates', headers=headers, params={'limit':'50'}, timeout=30), 200, 'Zertifikatsliste')
           for cert in cert_list.get('data', []):
               attrs = cert.get('attributes', {})
@@ -91,7 +89,6 @@ jobs:
                   if r.status_code not in (204, 404):
                       print(f"Warnung: altes CI-Distribution-Zertifikat {cert['id']} konnte nicht entfernt werden: HTTP {r.status_code}")
 
-          # Gleichnamige alte CI-Profile entfernen, falls ein früherer Lauf vor dem Cleanup abgebrochen ist.
           for profile_name in [os.environ['MAIN_PROFILE_NAME'], os.environ['SHARE_PROFILE_NAME']]:
               old = require(requests.get(base + '/profiles', headers=headers, params={'filter[name]': profile_name, 'limit':'50'}, timeout=30), 200, f'Profil-Liste {profile_name}')
               for profile in old.get('data', []):
@@ -188,8 +185,29 @@ jobs:
             cp "$profile" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/${uuid}.mobileprovision"
           done
 
-      - name: XcodeGen installieren
-        run: brew install xcodegen
+      - name: Build-Werkzeuge installieren
+        run: brew install xcodegen librsvg
+
+      - name: App-Icon aus ZweiCheck-Markenlogo erzeugen
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE="assets/brand/zweicheck-mark.svg"
+          TARGET="ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
+          TEMP_SVG="$RUNNER_TEMP/zweicheck-app-icon.svg"
+          TEMP_RGBA="$RUNNER_TEMP/zweicheck-app-icon-rgba.png"
+          TEMP_JPG="$RUNNER_TEMP/zweicheck-app-icon-flat.jpg"
+
+          test -f "$SOURCE"
+          sed 's/<rect width="512" height="512" rx="112" fill="#0D1B2A"\/>/<rect width="512" height="512" fill="#0D1B2A"\/>/' "$SOURCE" > "$TEMP_SVG"
+          rsvg-convert -w 1024 -h 1024 "$TEMP_SVG" -o "$TEMP_RGBA"
+          sips -s format jpeg -s formatOptions 100 "$TEMP_RGBA" --out "$TEMP_JPG" >/dev/null
+          sips -s format png "$TEMP_JPG" --out "$TARGET" >/dev/null
+
+          WIDTH=$(sips -g pixelWidth "$TARGET" | awk '/pixelWidth/ {print $2}')
+          HEIGHT=$(sips -g pixelHeight "$TARGET" | awk '/pixelHeight/ {print $2}')
+          test "$WIDTH" = "1024" && test "$HEIGHT" = "1024"
+          echo "ZweiCheck App-Icon: ${WIDTH}x${HEIGHT}"
 
       - name: Xcode-Projekt erzeugen
         working-directory: ios
