@@ -160,7 +160,7 @@ jobs:
             grep -Fq "senior-a11y-v1" /app/index.html &&
             grep -Fq "class=\"skip-link\"" /app/index.html &&
             grep -Fq "prefers-reduced-motion: reduce" /app/app.css &&
-            grep -Fq "zweicheck-phase3-v14" /app/sw.js &&
+            grep -Fq "zweicheck-phase3-v15" /app/sw.js &&
             grep -Fq "\"id\": \"/\"" /app/manifest.webmanifest &&
             grep -Fq "data-zc-delete-form" /app/account-client.js &&
             grep -Fq "Datenschutz bei ZweiCheck" /app/privacy.html &&
