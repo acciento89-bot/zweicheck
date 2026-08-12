@@ -98,8 +98,12 @@ jobs:
           curl -fsS http://127.0.0.1:3000/escalation.css -o /tmp/escalation.css
           curl -fsS http://127.0.0.1:3000/account-client.js -o /tmp/account-client.js
           curl -fsS http://127.0.0.1:3000/account.css -o /tmp/account.css
+          curl -fsS http://127.0.0.1:3000/privacy -o /tmp/privacy.html
+          curl -fsS http://127.0.0.1:3000/privacy-choices -o /tmp/privacy-choices.html
+          curl -fsS http://127.0.0.1:3000/support -o /tmp/support.html
           grep -q 'class="skip-link"' /tmp/index.html
           grep -q 'senior-a11y-v1' /tmp/index.html
+          grep -q 'release-1.0.0' /tmp/index.html
           grep -q 'prefers-reduced-motion: reduce' /tmp/app.css
           grep -q 'focus-visible' /tmp/app.css
           grep -q '"id": "/"' /tmp/manifest.webmanifest
@@ -112,7 +116,12 @@ jobs:
           grep -q 'escalationReminderMinutes' /tmp/escalation-client.js
           grep -q 'zc-escalation-card' /tmp/escalation.css
           grep -q 'data-zc-account-export' /tmp/account-client.js
+          grep -q 'href="/privacy"' /tmp/account-client.js
           grep -q 'zc-delete-confirm' /tmp/account.css
+          grep -q 'Datenschutz bei ZweiCheck' /tmp/privacy.html
+          grep -q 'contact@kamilunavo.com' /tmp/privacy.html
+          grep -q 'Deine Datenschutz-Einstellungen' /tmp/privacy-choices.html
+          grep -q 'Hilfe und Support' /tmp/support.html
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/activities)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/trust-routing)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/checks/11111111-1111-4111-8111-111111111111/escalation)" = "401"
@@ -130,12 +139,15 @@ jobs:
             grep -Fq "eventType === '\''check_reminder'\''" /app/server/push.js &&
             grep -Fq "eventType === '\''check_reminder'\''" /app/server/notification-worker.js &&
             grep -Fq "registerAccountRoutes" /app/server/activity.js &&
+            grep -Fq "app.get(['\''/privacy'\''" /app/server/activity.js &&
             grep -Fq "app.delete('\''/api/account'\''" /app/server/account.js &&
-            grep -Fq "account-privacy-v1" /app/index.html &&
+            grep -Fq "release-1.0.0" /app/index.html &&
             grep -Fq "senior-a11y-v1" /app/index.html &&
             grep -Fq "class=\"skip-link\"" /app/index.html &&
             grep -Fq "prefers-reduced-motion: reduce" /app/app.css &&
-            grep -Fq "zweicheck-phase3-v13" /app/sw.js &&
+            grep -Fq "zweicheck-phase3-v14" /app/sw.js &&
             grep -Fq "\"id\": \"/\"" /app/manifest.webmanifest &&
-            grep -Fq "data-zc-delete-form" /app/account-client.js
+            grep -Fq "data-zc-delete-form" /app/account-client.js &&
+            grep -Fq "Datenschutz bei ZweiCheck" /app/privacy.html &&
+            grep -Fq "Hilfe und Support" /app/support.html
           '
