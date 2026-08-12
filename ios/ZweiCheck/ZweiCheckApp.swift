@@ -38,20 +38,25 @@ struct ZweiCheckApp: App {
 
 private struct RootView: View {
     let model: AppModel
+    @AppStorage("zweicheck.onboarding.completed") private var onboardingCompleted = false
 
     var body: some View {
         Group {
-            switch model.sessionState {
-            case .checking:
-                VStack(spacing: 18) {
-                    ProgressView()
-                    Text("ZweiCheck wird gestartet …")
-                        .font(.headline)
+            if !onboardingCompleted {
+                OnboardingView(completed: $onboardingCompleted)
+            } else {
+                switch model.sessionState {
+                case .checking:
+                    VStack(spacing: 18) {
+                        ProgressView()
+                        Text("ZweiCheck wird gestartet …")
+                            .font(.headline)
+                    }
+                case .signedOut:
+                    AuthView(model: model)
+                case .signedIn:
+                    AppShellView(model: model)
                 }
-            case .signedOut:
-                AuthView(model: model)
-            case .signedIn:
-                AppShellView(model: model)
             }
         }
         .background(AppTheme.background.ignoresSafeArea())
