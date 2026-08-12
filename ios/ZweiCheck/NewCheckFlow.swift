@@ -4,16 +4,26 @@ import UIKit
 
 struct NewCheckFlow: View {
     let model: AppModel
+    private let sharedDraftID: String?
     @Environment(\.dismiss) private var dismiss
     @State private var step = 1
     @State private var reviewerID = ""
-    @State private var category: CheckCategory = .message
-    @State private var description = ""
+    @State private var category: CheckCategory
+    @State private var description: String
     @State private var amount = ""
     @State private var pickerItems: [PhotosPickerItem] = []
-    @State private var images: [UploadImage] = []
+    @State private var images: [UploadImage]
     @State private var imageError: String?
     @State private var preparingImages = false
+
+    init(model: AppModel) {
+        self.model = model
+        let draft = model.pendingSharedDraft
+        sharedDraftID = draft?.id
+        _category = State(initialValue: draft?.category ?? .message)
+        _description = State(initialValue: draft?.description ?? "")
+        _images = State(initialValue: draft?.images ?? [])
+    }
 
     private var connections: [TrustConnection] { model.routing?.connections ?? [] }
 
@@ -25,30 +35,34 @@ struct NewCheckFlow: View {
                     Text("Schritt \(step) von 4").font(.headline).foregroundStyle(AppTheme.teal)
                     content
                     HStack(spacing: 12) {
-                        if step > 1 { Button("Zurück") { step -= 1 }.buttonStyle(SeniorSecondaryButtonStyle()) }
+                        if step > 1 {
+                            Button("Zurück") { step -= 1 }
+                                .buttonStyle(SeniorSecondaryButtonStyle())
+                        }
                         if step < 4 {
-                            Button("Weiter") { step += 1 }.buttonStyle(SeniorPrimaryButtonStyle()).disabled(!canContinue)
+                            Button("Weiter") { step += 1 }
+                                .buttonStyle(SeniorPrimaryButtonStyle())
+                                .disabled(!canContinue)
                         } else {
                             Button("Jetzt prüfen lassen") {
-                                Task {
-                                    if await model.createCheck(
-                                        reviewerID: reviewerID,
-                                        category: category,
-                                        description: description,
-                                        amount: amount,
-                                        images: images
-                                    ) { dismiss() }
-                                }
+                                submit()
                             }
                             .buttonStyle(SeniorPrimaryButtonStyle())
                             .disabled(model.isBusy || preparingImages)
                         }
                     }
-                }.padding(20)
+                }
+                .padding(20)
             }
             .navigationTitle("Prüfen lassen")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } } }
-            .onAppear { if reviewerID.isEmpty { reviewerID = connections.first?.person.id ?? "" } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Schließen") { dismiss() }
+                }
+            }
+            .onAppear {
+                if reviewerID.isEmpty { reviewerID = connections.first?.person.id ?? "" }
+            }
             .onChange(of: pickerItems) { _, items in
                 Task { await loadImages(items) }
             }
@@ -65,10 +79,18 @@ struct NewCheckFlow: View {
                         reviewerID = connection.person.id
                     } label: {
                         HStack {
-                            VStack(alignment: .leading) { Text(connection.person.name).font(.title3.bold()); Text(connection.presence.label).font(.subheadline).foregroundStyle(.secondary) }
-                            Spacer(); Image(systemName: reviewerID == connection.person.id ? "checkmark.circle.fill" : "circle").font(.title2)
-                        }.padding(18).background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16))
-                    }.buttonStyle(.plain).foregroundStyle(AppTheme.navy)
+                            VStack(alignment: .leading) {
+                                Text(connection.person.name).font(.title3.bold())
+                                Text(connection.presence.label).font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: reviewerID == connection.person.id ? "checkmark.circle.fill" : "circle").font(.title2)
+                        }
+                        .padding(18)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AppTheme.navy)
                 }
             }
         case 2:
@@ -76,24 +98,45 @@ struct NewCheckFlow: View {
                 Text("Worum geht es?").font(.title.bold())
                 ForEach(CheckCategory.allCases) { item in
                     Button { category = item } label: {
-                        HStack { Image(systemName: item.symbol).frame(width: 28); Text(item.label).font(.title3.bold()); Spacer(); Image(systemName: category == item ? "checkmark.circle.fill" : "circle") }
-                            .padding(18).background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16))
-                    }.buttonStyle(.plain).foregroundStyle(AppTheme.navy)
+                        HStack {
+                            Image(systemName: item.symbol).frame(width: 28)
+                            Text(item.label).font(.title3.bold())
+                            Spacer()
+                            Image(systemName: category == item ? "checkmark.circle.fill" : "circle")
+                        }
+                        .padding(18)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AppTheme.navy)
                 }
             }
         case 3:
             VStack(alignment: .leading, spacing: 14) {
                 Text("Was ist passiert?").font(.title.bold())
+                if sharedDraftID != nil {
+                    Label("Aus dem Teilen-Menü übernommen", systemImage: "square.and.arrow.down")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.teal)
+                }
                 Text("Beschreibe kurz, warum du unsicher bist. Keine Passwörter oder TANs eingeben.").foregroundStyle(.secondary)
-                TextEditor(text: $description).frame(minHeight: 170).padding(10).background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
-                TextField("Betrag – optional, z. B. 49,90", text: $amount).keyboardType(.decimalPad).textFieldStyle(.roundedBorder).font(.title3)
+                TextEditor(text: $description)
+                    .frame(minHeight: 170)
+                    .padding(10)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+                TextField("Betrag – optional, z. B. 49,90", text: $amount)
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.title3)
 
                 PhotosPicker(selection: $pickerItems, maxSelectionCount: 3, matching: .images) {
                     Label(images.isEmpty ? "Bilder auswählen – optional" : "Bilder ändern (\(images.count)/3)", systemImage: "photo.on.rectangle.angled")
                 }
                 .buttonStyle(SeniorSecondaryButtonStyle())
 
-                if preparingImages { HStack { ProgressView(); Text("Bilder werden vorbereitet …") }.foregroundStyle(.secondary) }
+                if preparingImages {
+                    HStack { ProgressView(); Text("Bilder werden vorbereitet …") }.foregroundStyle(.secondary)
+                }
                 if let imageError { Text(imageError).foregroundStyle(.red).font(.subheadline) }
 
                 if !images.isEmpty {
@@ -111,8 +154,11 @@ struct NewCheckFlow: View {
                             }
                         }
                     }
-                    Button("Alle Bilder entfernen") { pickerItems = []; images = [] }
-                        .font(.body.weight(.semibold))
+                    Button("Alle Bilder entfernen") {
+                        pickerItems = []
+                        images = []
+                    }
+                    .font(.body.weight(.semibold))
                 }
             }
         default:
@@ -129,12 +175,39 @@ struct NewCheckFlow: View {
     }
 
     private var canContinue: Bool {
-        switch step { case 1: !reviewerID.isEmpty; case 2: true; case 3: description.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5 && !preparingImages; default: true }
+        switch step {
+        case 1: !reviewerID.isEmpty
+        case 2: true
+        case 3: description.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5 && !preparingImages
+        default: true
+        }
     }
 
     private func summary(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) { Text(title).font(.caption.bold()).foregroundStyle(.secondary); Text(value).font(.body) }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading).background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.caption.bold()).foregroundStyle(.secondary)
+            Text(value).font(.body)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func submit() {
+        let draftID = sharedDraftID
+        Task {
+            let success = await model.createCheck(
+                reviewerID: reviewerID,
+                category: category,
+                description: description,
+                amount: amount,
+                images: images
+            )
+            if success {
+                if draftID != nil { model.consumeSharedDraft() }
+                dismiss()
+            }
+        }
     }
 
     @MainActor
