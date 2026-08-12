@@ -48,8 +48,26 @@ struct TrustRoutingEnvelope: Codable, Equatable {
     }
 }
 
+struct PendingInvitation: Codable, Identifiable, Equatable {
+    let id: String
+    let creatorName: String
+    let creatorEmail: String
+    let expiresAt: String
+    let createdAt: String
+}
+
+struct PendingInvitationsEnvelope: Codable { let invitations: [PendingInvitation] }
+
 struct InvitationResult: Codable { let code: String; let expiresAt: String; let emailDelivery: String? }
 struct AcceptInvitationResult: Codable { let connectionId: String }
+
+struct AttachmentItem: Codable, Identifiable, Equatable {
+    let id: String
+    let originalName: String
+    let mimeType: String
+    let sizeBytes: Int
+    let url: String
+}
 
 struct CheckItem: Codable, Identifiable, Equatable {
     let id: String
@@ -69,6 +87,7 @@ struct CheckItem: Codable, Identifiable, Equatable {
     let createdAt: String
     let updatedAt: String
     let attachmentCount: Int?
+    let attachments: [AttachmentItem]?
 
     var categoryLabel: String { CheckCategory(rawValue: category)?.label ?? "Prüfanfrage" }
     var recommendationLabel: String? { recommendation.flatMap { Recommendation(rawValue: $0)?.label } }
@@ -76,6 +95,77 @@ struct CheckItem: Codable, Identifiable, Equatable {
 
 struct ChecksEnvelope: Codable { let checks: [CheckItem] }
 struct CheckEnvelope: Codable { let check: CheckItem }
+
+struct RoutingReviewer: Codable, Identifiable, Equatable {
+    let id: String
+    let name: String
+    let email: String
+    let presence: Presence
+}
+
+struct RoutingHistoryPerson: Codable, Equatable {
+    let id: String
+    let name: String
+}
+
+struct RoutingHistoryEntry: Codable, Identifiable, Equatable {
+    let id: String
+    let from: RoutingHistoryPerson
+    let to: RoutingHistoryPerson
+    let createdAt: String
+}
+
+struct CheckRouting: Codable, Equatable {
+    let checkId: String
+    let role: String
+    let status: String
+    let reassignedAt: String?
+    let currentReviewer: RoutingReviewer
+    let fallbackReviewer: RoutingReviewer?
+    let targets: [TrustConnection]
+    let canReroute: Bool
+    let history: [RoutingHistoryEntry]
+}
+
+struct CheckRoutingEnvelope: Codable { let routing: CheckRouting }
+
+struct EscalationFallbackReviewer: Codable, Identifiable, Equatable {
+    let id: String
+    let name: String
+}
+
+struct EscalationPlan: Codable, Equatable {
+    let checkId: String?
+    let role: String
+    let exists: Bool
+    let enabled: Bool
+    let state: String
+    let reminderMinutes: Int?
+    let reminderAt: String?
+    let remindedAt: String?
+    let autoReroute: Bool
+    let autoRerouteDelayMinutes: Int
+    let rerouteAt: String?
+    let reroutedAt: String?
+    let cancelledAt: String?
+    let lastError: String?
+    let canManage: Bool
+    let canConfigure: Bool
+    let fallbackReviewer: EscalationFallbackReviewer?
+
+    var stateLabel: String {
+        switch state {
+        case "waiting_reminder": "Wartet auf Erinnerung"
+        case "waiting_reroute": "Erinnert – wartet auf zweite Person"
+        case "reminded": "Erinnerung gesendet"
+        case "rerouted": "Automatisch weitergegeben"
+        case "cancelled": "Automatik beendet"
+        default: "Keine automatische Erinnerung"
+        }
+    }
+}
+
+struct EscalationEnvelope: Codable { let escalation: EscalationPlan }
 
 struct ActivityItem: Codable, Identifiable, Equatable {
     let id: String
@@ -102,6 +192,8 @@ struct ActivitiesEnvelope: Codable {
 struct ActivityEnvelope: Codable { let activity: ActivityItem }
 struct DeleteResult: Codable { let deleted: Bool? }
 struct VerificationResult: Codable { let sent: Bool?; let alreadyVerified: Bool? }
+struct PasswordResetRequestResult: Codable { let sent: Bool?; let debugUrl: String? }
+struct PasswordResetResult: Codable { let changed: Bool? }
 struct APIErrorEnvelope: Codable { let error: String; let code: String? }
 
 enum CheckCategory: String, CaseIterable, Identifiable {
