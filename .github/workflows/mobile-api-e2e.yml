@@ -1,0 +1,70 @@
+name: ZweiCheck Mobile API E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'scripts/**'
+      - '.github/workflows/mobile-api-e2e.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: zweicheck_mobile_test
+          POSTGRES_USER: zweicheck
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zweicheck -d zweicheck_mobile_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_mobile_test
+      APP_BASE_URL: http://127.0.0.1:3000
+      SESSION_COOKIE_SECURE: "false"
+      EMAIL_MODE: log
+      UPLOAD_DIR: /tmp/zweicheck-mobile-e2e
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Abhängigkeiten installieren
+        run: npm install
+      - name: Datenbank vorbereiten
+        run: npm run migrate
+      - name: Server starten
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start > /tmp/zweicheck-mobile-server.log 2>&1 &
+          echo $! > /tmp/zweicheck-mobile-server.pid
+          for attempt in {1..30}; do
+            if [ "$(curl -fsS http://127.0.0.1:3000/health 2>/dev/null || true)" = "ok" ]; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/zweicheck-mobile-server.log
+          exit 1
+      - name: Vollständigen Mobile-API-Ablauf testen
+        run: node scripts/mobile-api-e2e.js
+      - name: Server-Log bei Fehler zeigen
+        if: failure()
+        run: cat /tmp/zweicheck-mobile-server.log || true
