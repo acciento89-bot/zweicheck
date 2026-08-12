@@ -48,7 +48,13 @@ test('PWA metadata remains installable and stable', () => {
   assert.match(index, /apple-mobile-web-app-capable/);
   assert.match(index, /zweicheck-accessibility" content="senior-a11y-v1"/);
   assert.match(index, /app\.css\?v=2/);
+  assert.match(index, /app\.js\?v=7/);
+  assert.match(index, /trust-routing\.js\?v=3/);
+  assert.match(index, /escalation-client\.js\?v=4/);
   assert.match(index, /zweicheck-release" content="1\.0\.0"/);
-  assert.match(serviceWorker, /zweicheck-phase3-v15/);
+  assert.match(serviceWorker, /zweicheck-phase3-v16/);
   assert.match(serviceWorker, /app\.css\?v=2/);
+  assert.match(serviceWorker, /app\.js\?v=7/);
+  assert.match(serviceWorker, /trust-routing\.js\?v=3/);
+  assert.match(serviceWorker, /escalation-client\.js\?v=4/);
 });
