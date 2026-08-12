@@ -54,20 +54,20 @@
       block.dataset.zcEscalationCreate = 'true';
       block.innerHTML = `
         <div class="zc-escalation-create-heading">
-          <span class="eyebrow">Eskalation optional</span>
-          <strong>Nicht auf eine Antwort warten müssen</strong>
+          <span class="eyebrow">Optional</span>
+          <strong>Soll ZweiCheck nochmal erinnern?</strong>
         </div>
-        <label>Erinnern, falls keine Antwort kommt
+        <label>Wenn niemand antwortet
           <select name="escalationReminderMinutes" data-zc-escalation-create-minutes>
-            <option value="0">Keine Automatik</option>
+            <option value="0">Nein, nicht erinnern</option>
             ${reminderOptions()}
           </select>
         </label>
         <label class="zc-escalation-toggle">
           <input type="checkbox" name="escalationAutoReroute" value="true" data-zc-escalation-create-auto>
-          <span><strong>15 Minuten später automatisch weitergeben</strong><small>Nur möglich, wenn oben eine Ausweichperson gewählt wurde.</small></span>
+          <span><strong>Danach automatisch die zweite Person fragen</strong><small>Nur möglich, wenn du eine zweite Person ausgewählt hast.</small></span>
         </label>
-        <small class="zc-escalation-safe">Eine Antwort oder das Abschließen der Prüfung beendet die Automatik sofort.</small>`;
+        <small class="zc-escalation-safe">Sobald jemand antwortet, hört ZweiCheck automatisch auf.</small>`;
 
       const fallback = form.querySelector('[data-zc-fallback-field]');
       const reviewer = form.querySelector('select[name="reviewerId"]')?.closest('label');
@@ -117,23 +117,23 @@
 
   function statusBody(escalation) {
     if (!escalation?.exists || escalation.state === 'disabled') {
-      return '<p>Für diese Prüfanfrage ist keine Eskalationsautomatik eingerichtet.</p>';
+      return '<p>ZweiCheck erinnert bei dieser Anfrage nicht automatisch.</p>';
     }
     if (escalation.state === 'waiting_reminder') {
-      return `<p>Die Vertrauensperson wird in <strong data-zc-escalation-countdown="reminder">${escapeHtml(remainingText(escalation.reminderAt))}</strong> erinnert.</p>`;
+      return `<p>Wenn bis dahin niemand antwortet, erinnert ZweiCheck in <strong data-zc-escalation-countdown="reminder">${escapeHtml(remainingText(escalation.reminderAt))}</strong> nochmal.</p>`;
     }
     if (escalation.state === 'waiting_reroute') {
-      return `<p>Die Erinnerung wurde gesendet. Ohne Antwort wird die Anfrage in <strong data-zc-escalation-countdown="reroute">${escapeHtml(remainingText(escalation.rerouteAt))}</strong> automatisch an ${escapeHtml(escalation.fallbackReviewer?.name || 'die Ausweichperson')} weitergegeben.</p>`;
+      return `<p>Die erste Person wurde erinnert. Ohne Antwort fragt ZweiCheck in <strong data-zc-escalation-countdown="reroute">${escapeHtml(remainingText(escalation.rerouteAt))}</strong> automatisch ${escapeHtml(escalation.fallbackReviewer?.name || 'die zweite Person')}.</p>`;
     }
     if (escalation.state === 'reminded') {
-      return '<p>Die Vertrauensperson wurde erinnert. Eine automatische Weitergabe ist für diese Anfrage nicht aktiviert.</p>';
+      return '<p>ZweiCheck hat nochmal erinnert. Jetzt wird weiter auf eine Antwort gewartet.</p>';
     }
     if (escalation.state === 'rerouted') {
-      return '<p>Die Anfrage wurde durch den zuvor eingerichteten Eskalationsplan automatisch weitergegeben.</p>';
+      return '<p>ZweiCheck hat automatisch die zweite Person um Hilfe gebeten.</p>';
     }
     if (escalation.state === 'cancelled') {
       const reason = escalation.lastError ? `<small>${escapeHtml(escalation.lastError)}</small>` : '';
-      return `<p>Der Eskalationsplan ist nicht mehr aktiv.</p>${reason}`;
+      return `<p>Diese automatische Erinnerung ist beendet.</p>${reason}`;
     }
     return '';
   }
@@ -143,8 +143,8 @@
 
     if (escalation.enabled) {
       const label = escalation.state === 'waiting_reroute'
-        ? 'Automatische Weitergabe stoppen'
-        : 'Eskalationsplan stoppen';
+        ? 'Automatisches Weitergeben stoppen'
+        : 'Erinnerung stoppen';
       return `<div class="zc-escalation-actions"><button type="button" class="button button-secondary" data-zc-escalation-cancel>${escapeHtml(label)}</button></div>`;
     }
 
@@ -152,33 +152,33 @@
     const hasFallback = Boolean(escalation.fallbackReviewer);
     return `
       <div class="zc-escalation-config">
-        <label>Erinnerung nach
+        <label>Wann soll ZweiCheck erinnern?
           <select data-zc-escalation-detail-minutes>${reminderOptions(15)}</select>
         </label>
         <label class="zc-escalation-toggle ${hasFallback ? '' : 'is-disabled'}">
           <input type="checkbox" data-zc-escalation-detail-auto ${hasFallback ? '' : 'disabled'}>
-          <span><strong>15 Minuten später automatisch weitergeben</strong><small>${hasFallback ? `Ausweichperson: ${escapeHtml(escalation.fallbackReviewer.name)}` : 'Für diese Anfrage ist keine Ausweichperson hinterlegt.'}</small></span>
+          <span><strong>Danach die zweite Person fragen</strong><small>${hasFallback ? `Zweite Person: ${escapeHtml(escalation.fallbackReviewer.name)}` : 'Für diese Anfrage wurde keine zweite Person ausgewählt.'}</small></span>
         </label>
-        <button type="button" class="button button-primary" data-zc-escalation-enable>Eskalation aktivieren</button>
+        <button type="button" class="button button-primary" data-zc-escalation-enable>Erinnerung einschalten</button>
       </div>`;
   }
 
   function cardHtml(escalation) {
     const meta = stateMeta(escalation);
     const autoText = escalation?.exists && escalation.autoReroute
-      ? `<span>Ausweichautomatik: <strong>an</strong></span>`
+      ? `<span>Zweite Person automatisch fragen: <strong>Ja</strong></span>`
       : escalation?.exists
-        ? '<span>Ausweichautomatik: aus</span>'
+        ? '<span>Zweite Person automatisch fragen: Nein</span>'
         : '';
     return `
       <div class="zc-escalation-heading">
-        <div><span class="eyebrow">Phase 3.5</span><h2>Eskalationsplan</h2></div>
+        <div><span class="eyebrow">Automatische Hilfe</span><h2>Wenn niemand antwortet</h2></div>
         <span class="zc-escalation-state is-${meta.className}">${escapeHtml(meta.label)}</span>
       </div>
       <div class="zc-escalation-body">${statusBody(escalation)}</div>
-      ${escalation?.exists ? `<div class="zc-escalation-meta"><span>Erinnerung: ${escapeHtml(String(escalation.reminderMinutes || '–'))} Min.</span>${autoText}</div>` : ''}
+      ${escalation?.exists ? `<div class="zc-escalation-meta"><span>Erinnerung nach: ${escapeHtml(String(escalation.reminderMinutes || '–'))} Min.</span>${autoText}</div>` : ''}
       ${manageHtml(escalation)}
-      <small class="zc-escalation-safe">Sobald die Prüfung beantwortet, abgeschlossen oder manuell weitergegeben wird, stoppt die Automatik.</small>`;
+      <small class="zc-escalation-safe">Sobald jemand antwortet oder du die Anfrage beendest, hört ZweiCheck automatisch auf.</small>`;
   }
 
   function renderDetailCard() {
@@ -269,15 +269,264 @@
     }
   }
 
+  function setLeadingText(element, text) {
+    if (!element) return;
+    const node = [...element.childNodes].find((child) => child.nodeType === Node.TEXT_NODE && child.textContent.trim());
+    if (node) node.textContent = `${text}\n`;
+  }
+
+  function makeSimpleStep(number, title, text) {
+    const section = document.createElement('section');
+    section.className = 'zc-simple-step';
+    section.dataset.zcSimpleStep = String(number);
+    section.innerHTML = `
+      <div class="zc-simple-step-heading">
+        <span class="eyebrow">Schritt ${number} von 4</span>
+        <h2>${escapeHtml(title)}</h2>
+        <p>${escapeHtml(text)}</p>
+      </div>
+      <div class="zc-simple-step-body" data-zc-simple-step-body></div>`;
+    return section;
+  }
+
+  function makeStepButtons({ back = false, next = false } = {}) {
+    const row = document.createElement('div');
+    row.className = 'zc-simple-step-actions';
+    if (back) row.insertAdjacentHTML('beforeend', '<button type="button" class="button button-secondary" data-zc-simple-back>Zurück</button>');
+    if (next) row.insertAdjacentHTML('beforeend', '<button type="button" class="button button-primary" data-zc-simple-next>Weiter</button>');
+    return row;
+  }
+
+  function updateSimpleSummary(form) {
+    const summary = form.querySelector('[data-zc-simple-summary]');
+    if (!summary) return;
+    const reviewer = form.querySelector('select[name="reviewerId"]')?.selectedOptions?.[0]?.textContent?.split(' · ')[0]?.trim() || 'Vertrauensperson';
+    const category = form.querySelector('input[name="category"]:checked')?.closest('.option-card')?.querySelector('strong')?.textContent?.trim() || 'Prüfung';
+    summary.innerHTML = `
+      <div><small>Du fragst</small><strong>${escapeHtml(reviewer)}</strong></div>
+      <div><small>Es geht um</small><strong>${escapeHtml(category)}</strong></div>`;
+  }
+
+  function showSimpleStep(form, number) {
+    const step = Math.max(1, Math.min(4, Number(number) || 1));
+    form.dataset.zcSimpleCurrentStep = String(step);
+    form.querySelectorAll('[data-zc-simple-step]').forEach((section) => {
+      section.hidden = Number(section.dataset.zcSimpleStep) !== step;
+    });
+    const current = form.querySelector('[data-zc-simple-current]');
+    const bar = form.querySelector('[data-zc-simple-progress-bar]');
+    if (current) current.textContent = String(step);
+    if (bar) bar.style.width = `${step * 25}%`;
+    if (step === 4) updateSimpleSummary(form);
+  }
+
+  function validateSimpleStep(form, number) {
+    if (number === 1) {
+      const reviewer = form.querySelector('select[name="reviewerId"]');
+      return reviewer ? reviewer.reportValidity() : false;
+    }
+    if (number === 2) {
+      const checked = form.querySelector('input[name="category"]:checked');
+      if (checked) return true;
+      window.alert('Bitte wähle aus, worum es geht.');
+      return false;
+    }
+    if (number === 3) {
+      const description = form.querySelector('textarea[name="description"]');
+      return description ? description.reportValidity() : false;
+    }
+    return true;
+  }
+
+  function syncAdvancedFields(form) {
+    const holder = form.querySelector('[data-zc-simple-advanced-body]');
+    if (!holder) return;
+
+    const fallback = form.querySelector('[data-zc-fallback-field]');
+    if (fallback) {
+      if (fallback.parentElement !== holder) holder.append(fallback);
+      setLeadingText(fallback, 'Wer soll sonst helfen? (optional)');
+      const hint = fallback.querySelector('small');
+      if (hint) hint.textContent = 'Nur falls die erste Person nicht antworten kann.';
+    }
+
+    const escalation = form.querySelector('[data-zc-escalation-create]');
+    if (escalation && escalation.parentElement !== holder) holder.append(escalation);
+  }
+
+  function enhanceSimpleCreateForm(form) {
+    if (!form) return;
+
+    if (!form.dataset.zcSimpleFlow) {
+      const reviewerLabel = form.querySelector('select[name="reviewerId"]')?.closest('label');
+      const categoryFieldset = form.querySelector('input[name="category"]')?.closest('fieldset');
+      const descriptionLabel = form.querySelector('textarea[name="description"]')?.closest('label');
+      const imageLabel = form.querySelector('input[name="images"]')?.closest('label');
+      const formGrid = form.querySelector('.form-grid');
+      const safety = [...form.querySelectorAll('.notice')].find((item) => item.textContent.includes('noch nichts tun'));
+      const submit = form.querySelector('button[type="submit"]');
+      if (!reviewerLabel || !categoryFieldset || !descriptionLabel || !imageLabel || !formGrid || !safety || !submit) return;
+
+      form.dataset.zcSimpleFlow = 'true';
+      form.classList.add('zc-simple-flow');
+      document.body.classList.add('zc-senior-first');
+
+      const pageHeading = form.previousElementSibling?.classList?.contains('page-heading') ? form.previousElementSibling : null;
+      if (pageHeading) {
+        const eyebrow = pageHeading.querySelector('.eyebrow');
+        const heading = pageHeading.querySelector('h1');
+        if (eyebrow) eyebrow.textContent = 'Prüfung starten';
+        if (heading) heading.textContent = 'Wir gehen Schritt für Schritt';
+        if (!pageHeading.querySelector('[data-zc-simple-intro]')) {
+          const intro = document.createElement('p');
+          intro.dataset.zcSimpleIntro = 'true';
+          intro.textContent = 'Du musst nichts vorbereiten. Beantworte einfach eine Frage nach der anderen.';
+          pageHeading.append(intro);
+        }
+      }
+
+      setLeadingText(reviewerLabel, 'Wen möchtest du fragen?');
+      const legend = categoryFieldset.querySelector('legend');
+      if (legend) legend.textContent = 'Was möchtest du prüfen?';
+      setLeadingText(descriptionLabel, 'Was ist passiert?');
+      const description = descriptionLabel.querySelector('textarea');
+      if (description) description.placeholder = 'Schreib einfach in deinen Worten, was passiert ist …';
+      setLeadingText(imageLabel, 'Hast du ein Bild oder einen Screenshot? (optional)');
+      const imageHint = imageLabel.querySelector('small');
+      if (imageHint) imageHint.textContent = 'Du kannst bis zu 3 Bilder hinzufügen. Keine TANs oder Passwörter fotografieren.';
+
+      const amountLabel = formGrid.querySelector('input[name="amount"]')?.closest('label');
+      const urgencyLabel = formGrid.querySelector('select[name="urgency"]')?.closest('label');
+      setLeadingText(amountLabel, 'Betrag (optional)');
+      setLeadingText(urgencyLabel, 'Wie dringend ist es?');
+      const urgency = urgencyLabel?.querySelector('select');
+      if (urgency) {
+        const names = {
+          none: 'Nicht dringend',
+          low: 'Etwas dringend',
+          high: 'Dringend',
+          very_high: 'Sehr dringend – ich soll sofort handeln'
+        };
+        [...urgency.options].forEach((option) => {
+          if (names[option.value]) option.textContent = names[option.value];
+        });
+      }
+
+      submit.textContent = 'Jetzt sicher prüfen lassen';
+
+      const progress = document.createElement('div');
+      progress.className = 'zc-simple-progress';
+      progress.innerHTML = `
+        <span>Schritt <strong data-zc-simple-current>1</strong> von 4</span>
+        <div class="zc-simple-progress-track" aria-hidden="true"><i data-zc-simple-progress-bar></i></div>`;
+
+      const step1 = makeSimpleStep(1, 'Wer soll dir helfen?', 'Wähle eine Person, die du kennst und der du vertraust.');
+      const step2 = makeSimpleStep(2, 'Worum geht es?', 'Tippe auf die Auswahl, die am besten passt.');
+      const step3 = makeSimpleStep(3, 'Was ist passiert?', 'Schreib kurz auf, warum du unsicher bist. Ein oder zwei Sätze reichen.');
+      const step4 = makeSimpleStep(4, 'Alles richtig?', 'Prüfe kurz die wichtigsten Angaben und sende die Anfrage dann ab.');
+
+      step1.querySelector('[data-zc-simple-step-body]').append(reviewerLabel);
+      step1.append(makeStepButtons({ next: true }));
+      step2.querySelector('[data-zc-simple-step-body]').append(categoryFieldset);
+      step2.append(makeStepButtons({ back: true, next: true }));
+      step3.querySelector('[data-zc-simple-step-body]').append(descriptionLabel, imageLabel);
+      step3.append(makeStepButtons({ back: true, next: true }));
+
+      const finalBody = step4.querySelector('[data-zc-simple-step-body]');
+      const summary = document.createElement('div');
+      summary.className = 'zc-simple-summary';
+      summary.dataset.zcSimpleSummary = 'true';
+      const advanced = document.createElement('details');
+      advanced.className = 'zc-simple-advanced';
+      advanced.innerHTML = `
+        <summary><strong>Mehr Möglichkeiten</strong><small>Zweite Person und automatische Erinnerung</small></summary>
+        <div class="zc-simple-advanced-body" data-zc-simple-advanced-body></div>`;
+      finalBody.append(summary, formGrid, advanced, safety, submit);
+      step4.append(makeStepButtons({ back: true }));
+
+      form.prepend(progress);
+      form.append(step1, step2, step3, step4);
+      showSimpleStep(form, 1);
+    }
+
+    syncAdvancedFields(form);
+  }
+
+  function simplifyMainUi() {
+    const shell = document.querySelector('.app-shell');
+    if (!shell) {
+      document.body.classList.remove('zc-senior-first');
+      return;
+    }
+    document.body.classList.add('zc-senior-first');
+
+    const createButton = document.querySelector('[data-action="create-check"]');
+    if (createButton) createButton.textContent = 'Ich bin unsicher – prüfen lassen';
+
+    const connectionsNav = document.querySelector('.bottom-nav [data-view="connections"]');
+    if (connectionsNav && !connectionsNav.dataset.zcSimpleLabel) {
+      connectionsNav.dataset.zcSimpleLabel = 'true';
+      connectionsNav.innerHTML = '<span>◎</span>Personen';
+    }
+
+    const presence = document.querySelector('[data-zc-presence-panel]');
+    if (presence) {
+      const eyebrow = presence.querySelector('.eyebrow');
+      const heading = presence.querySelector('h2');
+      const description = presence.querySelector('.zc-presence-heading p');
+      if (eyebrow) eyebrow.textContent = 'Hilfe-Status';
+      if (heading) heading.textContent = 'Kannst du gerade helfen?';
+      if (description) description.textContent = 'Deine verbundenen Personen sehen nur diese Auswahl.';
+      const duration = presence.querySelector('[data-presence-duration]')?.closest('label');
+      setLeadingText(duration, 'Wie lange soll das gelten?');
+      const names = {
+        available: 'Ja, ich kann helfen',
+        urgent_only: 'Nur wenn es dringend ist',
+        unavailable: 'Gerade nicht',
+        neutral: 'Keine Angabe'
+      };
+      presence.querySelectorAll('[data-presence-status]').forEach((button) => {
+        if (names[button.dataset.presenceStatus]) button.textContent = names[button.dataset.presenceStatus];
+      });
+    }
+
+    const routing = document.querySelector('[data-zc-routing-card]');
+    if (routing) {
+      const eyebrow = routing.querySelector('.eyebrow');
+      const heading = routing.querySelector('h2');
+      if (eyebrow) eyebrow.textContent = 'Wer hilft?';
+      if (heading && heading.textContent.trim() === 'Zuständigkeit') heading.textContent = 'Wer hilft gerade?';
+      const reroute = routing.querySelector('[data-zc-reroute]');
+      if (reroute) reroute.textContent = 'Andere Person fragen';
+    }
+  }
+
   document.addEventListener('change', (event) => {
     const form = event.target.closest('form[data-form="create-check"]');
     if (form && (
       event.target.matches('[data-zc-escalation-create-minutes]')
       || event.target.matches('select[name="fallbackReviewerId"]')
     )) syncCreateControls(form);
+    if (form && form.dataset.zcSimpleFlow) updateSimpleSummary(form);
   });
 
   document.addEventListener('click', (event) => {
+    const next = event.target.closest('[data-zc-simple-next]');
+    if (next) {
+      const form = next.closest('form[data-form="create-check"]');
+      const current = Number(form?.dataset.zcSimpleCurrentStep || 1);
+      if (form && validateSimpleStep(form, current)) showSimpleStep(form, current + 1);
+      return;
+    }
+
+    const back = event.target.closest('[data-zc-simple-back]');
+    if (back) {
+      const form = back.closest('form[data-form="create-check"]');
+      const current = Number(form?.dataset.zcSimpleCurrentStep || 1);
+      if (form) showSimpleStep(form, current - 1);
+      return;
+    }
+
     const enable = event.target.closest('[data-zc-escalation-enable]');
     if (enable) {
       const card = enable.closest('[data-zc-escalation-card]');
@@ -296,9 +545,12 @@
       state.detailId = null;
       state.escalation = null;
       document.querySelector('[data-zc-escalation-card]')?.remove();
+      document.body.classList.remove('zc-senior-first');
       return;
     }
     decorateCreateForm();
+    enhanceSimpleCreateForm(document.querySelector('form[data-form="create-check"]'));
+    simplifyMainUi();
     syncDetail();
   }
 
