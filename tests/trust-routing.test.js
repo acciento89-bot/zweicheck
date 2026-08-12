@@ -19,6 +19,7 @@ const schema = fs.readFileSync(path.join(root, 'server', 'trust-routing-schema.j
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
 const client = fs.readFileSync(path.join(root, 'trust-routing.js'), 'utf8');
+const observerFix = fs.readFileSync(path.join(root, 'trust-routing-observer-fix.js'), 'utf8');
 
 test('presence status and duration are restricted to supported values', () => {
   assert.equal(normalizePresenceStatus('available'), 'available');
@@ -55,12 +56,22 @@ test('reroute target ids must be UUIDs', () => {
 
 test('trust routing assets are shipped and cached', () => {
   assert.match(index, /trust-routing\.css\?v=1/);
+  assert.match(index, /trust-routing-observer-fix\.js\?v=1/);
   assert.match(index, /trust-routing\.js\?v=1/);
-  assert.match(index, /trust-routing-v1/);
+  assert.match(index, /trust-routing-v1-hotfix1/);
   assert.match(serviceWorker, /zweicheck-phase3-v8/);
   assert.match(serviceWorker, /trust-routing\.js\?v=1/);
   assert.match(client, /fallbackReviewerId/);
   assert.match(client, /data-zc-reroute/);
+});
+
+test('trust observer hotfix scopes the legacy wide observer to the app root', () => {
+  assert.match(observerFix, /target === document\.documentElement/);
+  assert.match(observerFix, /options\.subtree === true/);
+  assert.match(observerFix, /document\.getElementById\('app'\)/);
+  assert.match(observerFix, /super\.observe\(appRoot, \{ childList: true \}\)/);
+  assert.match(observerFix, /window\.MutationObserver = NativeMutationObserver/);
+  assert.doesNotMatch(observerFix, /super\.observe\(appRoot, \{ childList: true, subtree: true \}\)/);
 });
 
 test('routing uses the existing stable startup patch and one-time fallback fields', () => {
