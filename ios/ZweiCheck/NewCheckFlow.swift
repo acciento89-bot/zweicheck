@@ -30,11 +30,13 @@ struct NewCheckFlow: View {
         sharedDraftID = draft?.id
         _category = State(initialValue: draft?.category ?? .message)
         _description = State(initialValue: draft?.description ?? "")
-        _images = State(initialValue: draft?.images ?? [])
+        let initialLimit = model.premium.isPremiumFamily ? 3 : 1
+        _images = State(initialValue: Array((draft?.images ?? []).prefix(initialLimit)))
     }
 
     private var connections: [TrustConnection] { model.routing?.connections ?? [] }
     private var fallbackCandidates: [TrustConnection] { connections.filter { $0.person.id != reviewerID } }
+    private var imageLimit: Int { model.premium.isPremiumFamily ? 3 : 1 }
 
     var body: some View {
         NavigationStack {
@@ -42,7 +44,16 @@ struct NewCheckFlow: View {
                 VStack(alignment: .leading, spacing: 22) {
                     ProgressView(value: Double(step), total: 4)
                         .tint(AppTheme.teal)
-                    Text("Schritt \(step) von 4").font(.headline).foregroundStyle(AppTheme.teal)
+                    HStack {
+                        Text("Schritt \(step) von 4").font(.headline).foregroundStyle(AppTheme.teal)
+                        Spacer()
+                        Text(model.premium.isPremiumFamily ? "Premium Familie" : "Kostenlos")
+                            .font(.caption.bold())
+                            .foregroundStyle(model.premium.isPremiumFamily ? .white : AppTheme.navy)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(model.premium.isPremiumFamily ? AppTheme.teal : AppTheme.navy.opacity(0.08), in: Capsule())
+                    }
                     content
                     HStack(spacing: 12) {
                         if step > 1 {
@@ -83,6 +94,14 @@ struct NewCheckFlow: View {
             }
             .onChange(of: pickerItems) { _, items in
                 Task { await loadImages(items) }
+            }
+            .onChange(of: model.premium.isPremiumFamily) { _, premium in
+                if !premium {
+                    images = Array(images.prefix(1))
+                    fallbackReviewerID = ""
+                    reminderMinutes = 0
+                    autoReroute = false
+                }
             }
         }
         .fullScreenCover(item: $imagePreview) { item in
@@ -181,15 +200,24 @@ struct NewCheckFlow: View {
                         .seniorInputSurface(focused: amountFocused)
                 }
 
-                PhotosPicker(selection: $pickerItems, maxSelectionCount: 3, matching: .images) {
-                    Label(images.isEmpty ? "Bilder auswählen – optional" : "Bilder ändern (\(images.count)/3)", systemImage: "photo.on.rectangle.angled")
+                PhotosPicker(selection: $pickerItems, maxSelectionCount: imageLimit, matching: .images) {
+                    Label(images.isEmpty ? "Bild auswählen – optional" : "Bilder ändern (\(images.count)/\(imageLimit))", systemImage: "photo.on.rectangle.angled")
                 }
                 .buttonStyle(SeniorSecondaryButtonStyle())
+
+                if !model.premium.isPremiumFamily {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "sparkles").foregroundStyle(AppTheme.teal)
+                        Text("Kostenlos ist 1 Bild möglich. Premium Familie erlaubt bis zu 3 Bilder pro Prüfung.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 if preparingImages {
                     HStack { ProgressView(); Text("Bilder werden vorbereitet …") }.foregroundStyle(.secondary)
                 }
-                if let imageError { Text(imageError).foregroundStyle(.red).font(.subheadline) }
+                if let imageError { Text(imageError).foregroundStyle(AppTheme.red).font(.subheadline) }
 
                 if !images.isEmpty {
                     Text("Bild antippen zum Vergrößern")
@@ -251,56 +279,99 @@ struct NewCheckFlow: View {
                 .padding(14)
                 .seniorInputSurface()
 
-                DisclosureGroup("Mehr Möglichkeiten", isExpanded: $showAdvanced) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Wer soll sonst helfen? (optional)")
-                                .font(.headline)
-                            Picker("Wer soll sonst helfen?", selection: $fallbackReviewerID) {
-                                Text("Keine zweite Person").tag("")
-                                ForEach(fallbackCandidates) { connection in
-                                    Text("\(connection.person.name) · \(connection.presence.label)").tag(connection.person.id)
+                if model.premium.isPremiumFamily {
+                    DisclosureGroup("Mehr Möglichkeiten", isExpanded: $showAdvanced) {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Label("Premium Familie", systemImage: "sparkles")
+                                .font(.caption.bold())
+                                .foregroundStyle(AppTheme.teal)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Wer soll sonst helfen? (optional)")
+                                    .font(.headline)
+                                Picker("Wer soll sonst helfen?", selection: $fallbackReviewerID) {
+                                    Text("Keine zweite Person").tag("")
+                                    ForEach(fallbackCandidates) { connection in
+                                        Text("\(connection.person.name) · \(connection.presence.label)").tag(connection.person.id)
+                                    }
                                 }
+                                .pickerStyle(.menu)
+                                .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .seniorInputSurface()
                             }
-                            .pickerStyle(.menu)
-                            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
-                            .padding(.horizontal, 12)
-                            .seniorInputSurface()
-                        }
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Soll ZweiCheck erinnern?")
-                                .font(.headline)
-                            Picker("Soll ZweiCheck erinnern?", selection: $reminderMinutes) {
-                                Text("Nein, nicht erinnern").tag(0)
-                                Text("Nach 5 Minuten").tag(5)
-                                Text("Nach 15 Minuten").tag(15)
-                                Text("Nach 30 Minuten").tag(30)
-                                Text("Nach 60 Minuten").tag(60)
-                                Text("Nach 120 Minuten").tag(120)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Soll ZweiCheck erinnern?")
+                                    .font(.headline)
+                                Picker("Soll ZweiCheck erinnern?", selection: $reminderMinutes) {
+                                    Text("Nein, nicht erinnern").tag(0)
+                                    Text("Nach 5 Minuten").tag(5)
+                                    Text("Nach 15 Minuten").tag(15)
+                                    Text("Nach 30 Minuten").tag(30)
+                                    Text("Nach 60 Minuten").tag(60)
+                                    Text("Nach 120 Minuten").tag(120)
+                                }
+                                .pickerStyle(.menu)
+                                .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .seniorInputSurface()
                             }
-                            .pickerStyle(.menu)
-                            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
-                            .padding(.horizontal, 12)
-                            .seniorInputSurface()
+
+                            Toggle("Danach automatisch die zweite Person fragen", isOn: $autoReroute)
+                                .disabled(reminderMinutes == 0 || fallbackReviewerID.isEmpty)
+
+                            Text("Sobald jemand antwortet oder du die Prüfung beendest, hört die Erinnerung automatisch auf.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                         }
-
-                        Toggle("Danach automatisch die zweite Person fragen", isOn: $autoReroute)
-                            .disabled(reminderMinutes == 0 || fallbackReviewerID.isEmpty)
-
-                        Text("Sobald jemand antwortet oder du die Prüfung beendest, hört die Erinnerung automatisch auf.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        .padding(.top, 12)
                     }
-                    .padding(.top, 12)
+                    .padding(16)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.teal.opacity(0.24), lineWidth: 1.5))
+                } else {
+                    premiumAutomationCard
                 }
-                .padding(16)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.14)))
 
                 Text("Sende die Anfrage erst ab, wenn alles stimmt.").foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var premiumAutomationCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Wenn niemand antwortet", systemImage: "bell.badge.fill")
+                    .font(.headline)
+                Spacer()
+                Text("PREMIUM")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(AppTheme.teal, in: Capsule())
+            }
+            Text("Premium Familie erinnert automatisch und kann danach eine zweite Vertrauensperson fragen.")
+                .foregroundStyle(.secondary)
+            Text("39,99 € pro Jahr")
+                .font(.title3.bold())
+                .foregroundStyle(AppTheme.navy)
+            Button("Premium Familie freischalten") {
+                Task {
+                    await model.premium.purchaseFamilyYearly()
+                    if let premiumMessage = model.premium.message {
+                        model.message = premiumMessage
+                        model.premium.message = nil
+                    }
+                }
+            }
+            .buttonStyle(SeniorPrimaryButtonStyle())
+            .disabled(model.premium.isLoading)
+        }
+        .padding(16)
+        .background(AppTheme.teal.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.teal.opacity(0.35), lineWidth: 1.5))
     }
 
     private var canContinue: Bool {
@@ -328,14 +399,14 @@ struct NewCheckFlow: View {
         Task {
             let success = await model.createCheck(
                 reviewerID: reviewerID,
-                fallbackReviewerID: fallbackReviewerID.isEmpty ? nil : fallbackReviewerID,
+                fallbackReviewerID: model.premium.isPremiumFamily && !fallbackReviewerID.isEmpty ? fallbackReviewerID : nil,
                 category: category,
                 description: description,
                 amount: amount,
                 urgency: urgency,
-                reminderMinutes: reminderMinutes == 0 ? nil : reminderMinutes,
-                autoReroute: autoReroute,
-                images: images
+                reminderMinutes: model.premium.isPremiumFamily && reminderMinutes > 0 ? reminderMinutes : nil,
+                autoReroute: model.premium.isPremiumFamily && autoReroute,
+                images: Array(images.prefix(imageLimit))
             )
             if success {
                 if draftID != nil { model.consumeSharedDraft() }
@@ -349,7 +420,7 @@ struct NewCheckFlow: View {
         preparingImages = true
         imageError = nil
         var prepared: [UploadImage] = []
-        for (index, item) in items.prefix(3).enumerated() {
+        for (index, item) in items.prefix(imageLimit).enumerated() {
             do {
                 guard let data = try await item.loadTransferable(type: Data.self) else { continue }
                 prepared.append(try ImagePreparation.jpeg(from: data, index: index))
