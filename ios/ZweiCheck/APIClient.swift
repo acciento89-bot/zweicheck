@@ -1,0 +1,141 @@
+import Foundation
+
+final class APIClient {
+    private let baseURL = URL(string: "https://zweicheck.kamilunavo.com")!
+    private let cookieStorage = HTTPCookieStorage()
+    private let keychain = KeychainSessionStore()
+    private lazy var session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = cookieStorage
+        configuration.httpShouldSetCookies = true
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+        return URLSession(configuration: configuration)
+    }()
+
+    init() { restoreSessionCookie() }
+
+    func me() async throws -> APIUser { try await request("/api/auth/me", as: AuthEnvelope.self).user }
+
+    func login(email: String, password: String) async throws -> APIUser {
+        let envelope: AuthEnvelope = try await request("/api/auth/login", method: "POST", json: ["email": email, "password": password])
+        persistSessionCookie()
+        return envelope.user
+    }
+
+    func register(name: String, email: String, password: String) async throws -> APIUser {
+        let envelope: AuthEnvelope = try await request("/api/auth/register", method: "POST", json: ["name": name, "email": email, "password": password])
+        persistSessionCookie()
+        return envelope.user
+    }
+
+    func logout() async {
+        _ = try? await requestData("/api/auth/logout", method: "POST")
+        cookieStorage.removeCookies(since: .distantPast)
+        keychain.clear()
+    }
+
+    func resendVerification() async throws { let _: VerificationResult = try await request("/api/auth/resend-verification", method: "POST") }
+
+    func checks() async throws -> [CheckItem] { try await request("/api/checks", as: ChecksEnvelope.self).checks }
+    func trustRouting() async throws -> TrustRoutingEnvelope { try await request("/api/trust-routing", as: TrustRoutingEnvelope.self) }
+
+    func updatePresence(status: String, durationMinutes: Int?) async throws {
+        var body: [String: Any] = ["status": status]
+        if let durationMinutes { body["durationMinutes"] = durationMinutes }
+        _ = try await requestData("/api/trust-routing/presence", method: "PUT", json: body)
+    }
+
+    func invite(email: String) async throws -> InvitationResult {
+        try await request("/api/invitations", method: "POST", json: ["email": email], as: InvitationResult.self)
+    }
+
+    func acceptInvitation(code: String) async throws {
+        let _: AcceptInvitationResult = try await request("/api/invitations/accept", method: "POST", json: ["code": code])
+    }
+
+    func createCheck(reviewerID: String, category: CheckCategory, description: String, amount: String?) async throws -> CheckItem {
+        var fields = [
+            "reviewerId": reviewerID,
+            "category": category.rawValue,
+            "description": description,
+            "urgency": "none"
+        ]
+        if let amount, !amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { fields["amount"] = amount }
+        let boundary = "ZweiCheck-\(UUID().uuidString)"
+        var body = Data()
+        for (name, value) in fields {
+            body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".data(using: .utf8)!)
+        }
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        var request = URLRequest(url: baseURL.appending(path: "/api/checks"))
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let data = try await perform(request)
+        return try decode(CheckEnvelope.self, from: data).check
+    }
+
+    func respond(checkID: String, recommendation: Recommendation, note: String) async throws -> CheckItem {
+        try await request("/api/checks/\(checkID)/respond", method: "POST", json: ["recommendation": recommendation.rawValue, "note": note], as: CheckEnvelope.self).check
+    }
+
+    func close(checkID: String) async throws { _ = try await requestData("/api/checks/\(checkID)/close", method: "POST") }
+
+    func deleteAccount(password: String) async throws {
+        _ = try await requestData("/api/account", method: "DELETE", json: ["password": password])
+        cookieStorage.removeCookies(since: .distantPast)
+        keychain.clear()
+    }
+
+    private func request<T: Decodable>(_ path: String, method: String = "GET", json: [String: Any]? = nil, as type: T.Type = T.self) async throws -> T {
+        let data = try await requestData(path, method: method, json: json)
+        return try decode(T.self, from: data)
+    }
+
+    private func requestData(_ path: String, method: String = "GET", json: [String: Any]? = nil) async throws -> Data {
+        var request = URLRequest(url: baseURL.appending(path: path))
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let json {
+            request.httpBody = try JSONSerialization.data(withJSONObject: json)
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        return try await perform(request)
+    }
+
+    private func perform(_ request: URLRequest) async throws -> Data {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIClientError.message("Keine gültige Serverantwort.") }
+        guard (200..<300).contains(http.statusCode) else {
+            if let envelope = try? decode(APIErrorEnvelope.self, from: data) { throw APIClientError.message(envelope.error) }
+            throw APIClientError.message("ZweiCheck konnte die Anfrage nicht abschließen.")
+        }
+        return data
+    }
+
+    private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        do { return try JSONDecoder().decode(type, from: data) }
+        catch { throw APIClientError.message("Die Serverantwort konnte nicht gelesen werden.") }
+    }
+
+    private func persistSessionCookie() {
+        guard let cookie = cookieStorage.cookies(for: baseURL)?.first(where: { $0.name == "zc_session" }) else { return }
+        try? keychain.save(cookie.value)
+    }
+
+    private func restoreSessionCookie() {
+        guard let value = keychain.load(), let host = baseURL.host else { return }
+        let properties: [HTTPCookiePropertyKey: Any] = [
+            .name: "zc_session", .value: value, .domain: host, .path: "/", .secure: "TRUE",
+            .expires: Date().addingTimeInterval(30 * 24 * 60 * 60)
+        ]
+        if let cookie = HTTPCookie(properties: properties) { cookieStorage.setCookie(cookie) }
+    }
+}
+
+enum APIClientError: LocalizedError {
+    case message(String)
+    var errorDescription: String? { if case .message(let text) = self { text } else { nil } }
+}
