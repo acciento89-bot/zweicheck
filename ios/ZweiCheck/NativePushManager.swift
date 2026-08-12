@@ -4,6 +4,7 @@ import UserNotifications
 
 enum NativePushManager {
     static let tokenDefaultsKey = "zweicheck.apns.token"
+    static let pendingURLDefaultsKey = "zweicheck.apns.pending-url"
 
     static var environment: String {
         #if DEBUG
@@ -32,6 +33,17 @@ enum NativePushManager {
         await MainActor.run {
             UIApplication.shared.registerForRemoteNotifications()
         }
+    }
+
+    static func storePendingNotificationURL(_ url: URL) {
+        UserDefaults.standard.set(url.absoluteString, forKey: pendingURLDefaultsKey)
+    }
+
+    static func consumePendingNotificationURL() -> URL? {
+        guard let value = UserDefaults.standard.string(forKey: pendingURLDefaultsKey),
+              let url = URL(string: value) else { return nil }
+        UserDefaults.standard.removeObject(forKey: pendingURLDefaultsKey)
+        return url
     }
 }
 
