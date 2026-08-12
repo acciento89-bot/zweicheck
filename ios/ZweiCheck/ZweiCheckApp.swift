@@ -23,6 +23,7 @@ struct ZweiCheckApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: .zweiCheckOpenNotificationURL)) { notification in
                     guard let url = notification.object as? URL else { return }
                     model.handleIncomingURL(url)
+                    _ = NativePushManager.consumePendingNotificationURL()
                 }
         }
         .onChange(of: scenePhase) { _, phase in
