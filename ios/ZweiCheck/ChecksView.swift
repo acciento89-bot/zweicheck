@@ -79,6 +79,7 @@ struct CheckDetailView: View {
     @State private var reminderMinutes = 15
     @State private var autoReroute = false
     @State private var loadingDetails = true
+    @FocusState private var noteFocused: Bool
 
     init(model: AppModel, initialCheck: CheckItem) {
         self.model = model
@@ -108,7 +109,7 @@ struct CheckDetailView: View {
                 if canRespond { responseControls }
                 if canClose {
                     Button("Prüfung abschließen") { closeCurrentCheck() }
-                        .buttonStyle(SeniorSecondaryButtonStyle())
+                        .buttonStyle(ZweiCheckActionButtonStyle(tone: .navy))
                 }
                 if loadingDetails { ProgressView("Prüfung wird aktualisiert …") }
             }
@@ -132,10 +133,11 @@ struct CheckDetailView: View {
             }
             Spacer()
             Image(systemName: check.status == "open" ? "clock.fill" : "checkmark.circle.fill")
-                .foregroundStyle(check.status == "open" ? AppTheme.orange : AppTheme.teal)
+                .foregroundStyle(check.status == "open" ? AppTheme.orange : AppTheme.green)
         }
         .padding(16)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.navy.opacity(0.10)))
     }
 
     private var statusText: String {
@@ -172,6 +174,7 @@ struct CheckDetailView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(AppTheme.teal.opacity(0.18)))
     }
 
     @ViewBuilder private func routingCard(_ value: CheckRouting) -> some View {
@@ -197,10 +200,14 @@ struct CheckDetailView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 50)
+                .seniorInputSurface()
+
                 Button("Offene Anfrage weitergeben") {
                     rerouteCurrentCheck()
                 }
-                .buttonStyle(SeniorSecondaryButtonStyle())
+                .buttonStyle(ZweiCheckActionButtonStyle(tone: .navy))
                 .disabled(rerouteTargetID.isEmpty || model.isBusy)
             } else if value.reassignedAt != nil {
                 Text("Diese Prüfung wurde bereits einmal weitergegeben.").font(.footnote).foregroundStyle(.secondary)
@@ -208,6 +215,7 @@ struct CheckDetailView: View {
         }
         .padding(18)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(AppTheme.navy.opacity(0.10)))
     }
 
     @ViewBuilder private func escalationCard(_ value: EscalationPlan) -> some View {
@@ -222,7 +230,7 @@ struct CheckDetailView: View {
                 Text("Danach wird automatisch \(fallback.name) gefragt.").foregroundStyle(.secondary)
             }
             if let error = value.lastError, !error.isEmpty {
-                Text(error).font(.footnote).foregroundStyle(.red)
+                Text(error).font(.footnote).foregroundStyle(AppTheme.red)
             }
 
             if value.canConfigure && !value.enabled {
@@ -234,19 +242,25 @@ struct CheckDetailView: View {
                     Text("120 Minuten").tag(120)
                 }
                 .pickerStyle(.menu)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 50)
+                .seniorInputSurface()
+
                 Toggle("Danach zweite Person fragen", isOn: $autoReroute)
                     .disabled(value.fallbackReviewer == nil)
+
                 Button("Erinnerung einschalten") { updateReminder(enabled: true) }
-                    .buttonStyle(SeniorSecondaryButtonStyle())
+                    .buttonStyle(SeniorPrimaryButtonStyle())
                     .disabled(model.isBusy)
             } else if value.enabled && value.canManage {
                 Button("Erinnerung stoppen") { updateReminder(enabled: false) }
-                    .buttonStyle(SeniorSecondaryButtonStyle())
+                    .buttonStyle(ZweiCheckActionButtonStyle(tone: .warning))
                     .disabled(model.isBusy)
             }
         }
         .padding(18)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(AppTheme.teal.opacity(0.18)))
     }
 
     private var responseControls: some View {
@@ -254,11 +268,23 @@ struct CheckDetailView: View {
             Text("Was empfiehlst du?").font(.title2.bold())
             TextField("Kurze Notiz – optional", text: $note, axis: .vertical)
                 .lineLimit(2...5)
-                .textFieldStyle(.roundedBorder)
+                .focused($noteFocused)
+                .padding(12)
+                .seniorInputSurface(focused: noteFocused)
+
             ForEach(Recommendation.allCases) { recommendation in
                 Button(recommendation.label) { submit(recommendation) }
-                    .buttonStyle(SeniorSecondaryButtonStyle())
+                    .buttonStyle(ZweiCheckActionButtonStyle(tone: tone(for: recommendation)))
             }
+        }
+    }
+
+    private func tone(for recommendation: Recommendation) -> ZweiCheckActionTone {
+        switch recommendation {
+        case .doNotAct: .danger
+        case .verifyPersonally: .warning
+        case .plausible: .positive
+        case .callMe: .navy
         }
     }
 
