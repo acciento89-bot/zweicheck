@@ -38,7 +38,7 @@
   function reminderOptions(selected = '') {
     const values = [5, 15, 30, 60, 120];
     return values.map((minutes) => {
-      const label = minutes < 60 ? `${minutes} Minuten` : minutes === 60 ? '1 Stunde' : '2 Stunden';
+      const label = `${minutes} Minuten`;
       return `<option value="${minutes}" ${String(selected) === String(minutes) ? 'selected' : ''}>${label}</option>`;
     }).join('');
   }
@@ -181,6 +181,28 @@
       <small class="zc-escalation-safe">Sobald jemand antwortet oder du die Anfrage beendest, hört ZweiCheck automatisch auf.</small>`;
   }
 
+  function renderKey(escalation) {
+    return JSON.stringify({
+      checkId: escalation?.checkId || null,
+      role: escalation?.role || null,
+      exists: Boolean(escalation?.exists),
+      enabled: Boolean(escalation?.enabled),
+      state: escalation?.state || null,
+      reminderMinutes: escalation?.reminderMinutes ?? null,
+      reminderAt: escalation?.reminderAt || null,
+      remindedAt: escalation?.remindedAt || null,
+      autoReroute: Boolean(escalation?.autoReroute),
+      rerouteAt: escalation?.rerouteAt || null,
+      reroutedAt: escalation?.reroutedAt || null,
+      cancelledAt: escalation?.cancelledAt || null,
+      canManage: Boolean(escalation?.canManage),
+      canConfigure: Boolean(escalation?.canConfigure),
+      fallbackId: escalation?.fallbackReviewer?.id || null,
+      fallbackName: escalation?.fallbackReviewer?.name || null,
+      lastError: escalation?.lastError || null
+    });
+  }
+
   function renderDetailCard() {
     const detail = document.querySelector('[data-check-detail][data-check-id]');
     const escalation = state.escalation;
@@ -206,8 +228,20 @@
       else detail.after(card);
     }
 
-    const html = cardHtml(escalation);
-    if (card.innerHTML !== html) card.innerHTML = html;
+    // Wichtig: nicht anhand von innerHTML neu rendern. Sonst gilt jede Auswahl im
+    // <select> als DOM-Abweichung und wird beim 1-Sekunden-Tick wieder auf 15 Min.
+    // zurückgesetzt. Nur echte Server-Zustandsänderungen dürfen die Karte ersetzen.
+    const key = renderKey(escalation);
+    if (card.dataset.zcEscalationRenderKey !== key) {
+      card.innerHTML = cardHtml(escalation);
+      card.dataset.zcEscalationRenderKey = key;
+    }
+
+    // Countdowns aktualisieren ohne die Bedienelemente neu aufzubauen.
+    const reminderCountdown = card.querySelector('[data-zc-escalation-countdown="reminder"]');
+    if (reminderCountdown) reminderCountdown.textContent = remainingText(escalation.reminderAt);
+    const rerouteCountdown = card.querySelector('[data-zc-escalation-countdown="reroute"]');
+    if (rerouteCountdown) rerouteCountdown.textContent = remainingText(escalation.rerouteAt);
   }
 
   async function loadDetailEscalation(checkId, { force = false } = {}) {
