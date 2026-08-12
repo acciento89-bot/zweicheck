@@ -73,7 +73,7 @@ test('account assets are shipped through the existing activity registration path
   assert.match(index, /app\.css\?v=2/);
   assert.match(index, /account-client\.js\?v=2/);
   assert.match(index, /account\.css\?v=2/);
-  assert.match(serviceWorker, /zweicheck-phase3-v14/);
+  assert.match(serviceWorker, /zweicheck-phase3-v15/);
   assert.match(serviceWorker, /app\.js\?v=6/);
   assert.match(serviceWorker, /app\.css\?v=2/);
   assert.match(serviceWorker, /account-client\.js\?v=2/);
