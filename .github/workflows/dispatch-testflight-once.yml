@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/release-testflight-7'
+      - '.github/release-testflight-8'
 
 permissions:
   actions: write
@@ -14,7 +14,7 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Build 7 TestFlight starten
+      - name: Build 8 TestFlight starten
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run testflight.yml --ref main --repo "$GITHUB_REPOSITORY"
