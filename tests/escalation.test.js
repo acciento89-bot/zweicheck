@@ -81,10 +81,10 @@ test('escalation client is additive and does not use a MutationObserver', () => 
 
 test('phase 3.5 assets and server integration remain shipped', () => {
   assert.match(index, /meta name="zweicheck-build" content="[^"]+"/);
-  assert.match(index, /escalation-client\.js\?v=2/);
+  assert.match(index, /escalation-client\.js\?v=3/);
   assert.match(index, /escalation\.css\?v=2/);
   assert.match(serviceWorker, /const CACHE_NAME = 'zweicheck-phase3-v\d+'/);
-  assert.match(serviceWorker, /escalation-client\.js\?v=2/);
+  assert.match(serviceWorker, /escalation-client\.js\?v=3/);
   assert.match(patch, /registerEscalationRoutes/);
   assert.match(patch, /createCheckEscalation/);
   assert.match(patch, /startEscalationWorker/);
