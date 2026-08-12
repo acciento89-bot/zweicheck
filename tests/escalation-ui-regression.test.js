@@ -7,9 +7,8 @@ const assert = require('node:assert/strict');
 const source = fs.readFileSync('escalation-client.js', 'utf8');
 
 test('reminder choices stay consistently expressed in minutes', () => {
-  for (const value of ['5 Minuten', '15 Minuten', '30 Minuten', '60 Minuten', '120 Minuten']) {
-    assert.match(source, new RegExp(value), `Fehlende Auswahl: ${value}`);
-  }
+  assert.match(source, /const values = \[5, 15, 30, 60, 120\]/);
+  assert.match(source, /const label = `\$\{minutes\} Minuten`/);
   assert.doesNotMatch(source, />1 Stunde</);
   assert.doesNotMatch(source, />2 Stunden</);
 });
