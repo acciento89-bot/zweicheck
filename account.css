@@ -1,0 +1,113 @@
+.zc-account-privacy {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.zc-account-privacy h2 {
+  margin: 0;
+}
+
+.zc-account-intro {
+  margin: -6px 0 0;
+  color: #61758a;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.zc-account-action {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(15, 130, 126, .18);
+  border-radius: 16px;
+  background: rgba(223, 244, 242, .38);
+}
+
+.zc-account-action > div {
+  display: grid;
+  gap: 6px;
+}
+
+.zc-account-action strong {
+  color: #061a2f;
+  font-size: 1.05rem;
+}
+
+.zc-account-action small {
+  color: #61758a;
+  line-height: 1.5;
+  font-size: .92rem;
+}
+
+.zc-account-action .button {
+  min-height: 52px;
+  justify-self: start;
+}
+
+.zc-delete-box {
+  border-top: 1px solid rgba(6, 26, 47, .1);
+  padding-top: 14px;
+}
+
+.zc-delete-box summary {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 800;
+  color: #7f3f00;
+  font-size: 1rem;
+}
+
+.zc-delete-box summary:focus-visible {
+  outline: 3px solid #0f827e;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.zc-delete-content {
+  display: grid;
+  gap: 16px;
+  padding-top: 10px;
+}
+
+.zc-delete-confirm {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(176, 90, 0, .2);
+  border-radius: 14px;
+  background: #fff9f1;
+}
+
+.zc-delete-confirm input {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  margin-top: 1px;
+  accent-color: #b45b00;
+}
+
+.zc-delete-confirm span {
+  line-height: 1.45;
+  color: #17324d;
+}
+
+.zc-delete-content input[type="password"] {
+  min-height: 54px;
+  font-size: 1rem;
+}
+
+.zc-delete-content .button-warning {
+  min-height: 54px;
+  font-size: 1rem;
+}
+
+@media (min-width: 640px) {
+  .zc-account-action {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
