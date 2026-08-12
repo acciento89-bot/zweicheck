@@ -54,5 +54,63 @@ if (fs.existsSync(trustFile)) {
     trustSource = trustSource.replace(oldObserver, newObserver);
   }
 
+  const oldRoutingRender = `  function renderRoutingCard() {
+    const detail = document.querySelector('[data-check-detail][data-check-id]');
+    if (!detail || !state.routing || detail.dataset.checkId !== state.routing.checkId) return;
+    const old = document.querySelector('[data-zc-routing-card]');
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = routingCardHtml(state.routing);
+    const card = wrapper.firstElementChild;
+    if (old) old.replaceWith(card);
+    else detail.after(card);
+  }`;
+  const stableRoutingRender = `  function renderRoutingCard() {
+    const detail = document.querySelector('[data-check-detail][data-check-id]');
+    if (!detail || !state.routing || detail.dataset.checkId !== state.routing.checkId) return;
+    const old = document.querySelector('[data-zc-routing-card]');
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = routingCardHtml(state.routing);
+    const card = wrapper.firstElementChild;
+
+    // Kein DOM-Austausch, wenn sich inhaltlich nichts geändert hat. Ein dauerndes
+    // replaceWith würde andere interaktive Karten daneben unnötig neu layouten.
+    if (old && old.dataset.checkId === state.routing.checkId && old.innerHTML === card.innerHTML) return;
+    if (old) old.replaceWith(card);
+    else detail.after(card);
+  }`;
+
+  if (!trustSource.includes(stableRoutingRender)) {
+    if (!trustSource.includes(oldRoutingRender)) throw new Error('Expected routing renderer was not found in trust-routing.js');
+    trustSource = trustSource.replace(oldRoutingRender, stableRoutingRender);
+  }
+
   fs.writeFileSync(trustFile, trustSource);
+}
+
+const escalationFile = 'escalation-client.js';
+if (fs.existsSync(escalationFile)) {
+  let escalationSource = fs.readFileSync(escalationFile, 'utf8');
+
+  const oldCardMarker = `      card.dataset.checkId = escalation.checkId;`;
+  const stableCardMarker = `      card.dataset.checkId = escalation.checkId;\n      card.dataset.zcPollingLock = 'true';`;
+  if (!escalationSource.includes(stableCardMarker)) {
+    if (!escalationSource.includes(oldCardMarker)) throw new Error('Expected escalation card marker was not found.');
+    escalationSource = escalationSource.replace(oldCardMarker, stableCardMarker);
+  }
+
+  const oldRenderGuard = `    const key = renderKey(escalation);\n    if (card.dataset.zcEscalationRenderKey !== key) {`;
+  const stableRenderGuard = `    const key = renderKey(escalation);\n    const userIsInteracting = card.matches(':focus-within');\n    if (!userIsInteracting && card.dataset.zcEscalationRenderKey !== key) {`;
+  if (!escalationSource.includes(stableRenderGuard)) {
+    if (!escalationSource.includes(oldRenderGuard)) throw new Error('Expected escalation render guard was not found.');
+    escalationSource = escalationSource.replace(oldRenderGuard, stableRenderGuard);
+  }
+
+  const oldSync = `    const checkId = detail.dataset.checkId;\n    loadDetailEscalation(checkId).catch(() => {});\n    renderDetailCard();`;
+  const stableSync = `    const checkId = detail.dataset.checkId;\n    const activeReminderControl = document.querySelector('[data-zc-escalation-card]:focus-within');\n    if (!activeReminderControl) loadDetailEscalation(checkId).catch(() => {});\n    renderDetailCard();`;
+  if (!escalationSource.includes(stableSync)) {
+    if (!escalationSource.includes(oldSync)) throw new Error('Expected escalation sync code was not found.');
+    escalationSource = escalationSource.replace(oldSync, stableSync);
+  }
+
+  fs.writeFileSync(escalationFile, escalationSource);
 }
