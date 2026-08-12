@@ -17,15 +17,21 @@ enum NativePushManager {
         UserDefaults.standard.string(forKey: tokenDefaultsKey)
     }
 
+    static func authorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
     static func requestAuthorization() async throws -> Bool {
         let center = UNUserNotificationCenter.current()
         let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-        if granted {
-            await MainActor.run {
-                UIApplication.shared.registerForRemoteNotifications()
-            }
-        }
+        if granted { await registerForRemoteNotifications() }
         return granted
+    }
+
+    static func registerForRemoteNotifications() async {
+        await MainActor.run {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
     }
 }
 
