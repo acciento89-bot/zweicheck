@@ -60,7 +60,7 @@ test('account view survives background polling without losing open state or inpu
   assert.match(client, /data-zc-account-privacy/);
   assert.match(pollingPatch, /#app \[data-zc-account-privacy\]/);
   assert.match(pollingPatch, /#app \[data-zc-polling-lock\]/);
-  assert.match(pollingPatch, /if \(!pollingLocked\) render\(\)/);
+  assert.match(pollingPatch, /window\.dispatchEvent\(new CustomEvent\('zweicheck:data-refreshed'\)\)/);
   assert.match(pollingPatch, /patchedCodeV1/);
 });
 
@@ -69,12 +69,12 @@ test('account assets are shipped through the existing activity registration path
   assert.match(activity, /account-client\.js/);
   assert.match(activity, /account\.css/);
   assert.match(index, /zweicheck-build" content="release-1\.0\.0"/);
-  assert.match(index, /app\.js\?v=6/);
+  assert.match(index, /app\.js\?v=7/);
   assert.match(index, /app\.css\?v=2/);
   assert.match(index, /account-client\.js\?v=2/);
   assert.match(index, /account\.css\?v=2/);
-  assert.match(serviceWorker, /zweicheck-phase3-v15/);
-  assert.match(serviceWorker, /app\.js\?v=6/);
+  assert.match(serviceWorker, /zweicheck-phase3-v16/);
+  assert.match(serviceWorker, /app\.js\?v=7/);
   assert.match(serviceWorker, /app\.css\?v=2/);
   assert.match(serviceWorker, /account-client\.js\?v=2/);
   assert.match(serviceWorker, /account\.css\?v=2/);
