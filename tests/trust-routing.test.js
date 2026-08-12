@@ -55,10 +55,10 @@ test('reroute target ids must be UUIDs', () => {
 
 test('trust routing assets are shipped and cached', () => {
   assert.match(index, /trust-routing\.css\?v=1/);
-  assert.match(index, /trust-routing\.js\?v=2/);
+  assert.match(index, /trust-routing\.js\?v=3/);
   assert.match(index, /meta name="zweicheck-build" content="[^"]+"/);
-  assert.match(serviceWorker, /const CACHE_NAME = 'zweicheck-phase3-v\d+'/);
-  assert.match(serviceWorker, /trust-routing\.js\?v=2/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'zweicheck-phase3-v16'/);
+  assert.match(serviceWorker, /trust-routing\.js\?v=3/);
   assert.match(client, /fallbackReviewerId/);
   assert.match(client, /data-zc-reroute/);
 });
@@ -69,6 +69,11 @@ test('build patch scopes trust routing observer to direct app renders only', () 
   assert.match(appPatch, /document\.getElementById\('app'\)/);
   assert.match(appPatch, /observer\.observe\(appRoot, \{ childList: true \}\)/);
   assert.doesNotMatch(appPatch, /observer\.observe\(appRoot, \{ childList: true, subtree: true \}\)/);
+});
+
+test('routing rendering avoids replacing an unchanged interactive card', () => {
+  assert.match(appPatch, /old\.dataset\.checkId === state\.routing\.checkId/);
+  assert.match(appPatch, /old\.innerHTML === card\.innerHTML/);
 });
 
 test('routing uses the existing stable startup patch and one-time fallback fields', () => {
