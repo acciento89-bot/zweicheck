@@ -13,6 +13,9 @@ targets:
     platform: iOS
     sources:
       - ZweiCheck
+    dependencies:
+      - target: ZweiCheckShare
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.kamilunavo.zweicheck
@@ -28,10 +31,46 @@ targets:
         SUPPORTS_MACCATALYST: NO
         CODE_SIGN_ENTITLEMENTS: ZweiCheck/ZweiCheck.entitlements
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+      configs:
+        Debug:
+          APNS_ENVIRONMENT: development
+        Release:
+          APNS_ENVIRONMENT: production
+
+  ZweiCheckShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - ZweiCheckShare
+    info:
+      path: ZweiCheckShare/Info.plist
+      properties:
+        CFBundleDisplayName: Mit ZweiCheck prüfen
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsImageWithMaxCount: 3
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.kamilunavo.zweicheck.share
+        PRODUCT_NAME: ZweiCheckShare
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 1
+        CODE_SIGN_ENTITLEMENTS: ZweiCheckShare/ZweiCheckShare.entitlements
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+
 schemes:
   ZweiCheck:
     build:
       targets:
         ZweiCheck: all
+        ZweiCheckShare: all
     run:
       config: Debug

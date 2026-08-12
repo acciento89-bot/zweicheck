@@ -21,14 +21,18 @@ final class AppModel {
     var destination: Destination?
     var pendingCheckID: String?
     var pendingInviteCode: String?
+    var pendingSharedDraft: SharedDraft?
+    var nativePushRegistered = false
 
     func bootstrap() async {
         guard !didBootstrap else { return }
         didBootstrap = true
+        refreshSharedDraft()
         do {
             user = try await api.me()
             sessionState = .signedIn
             await refreshAll()
+            await syncStoredNativePushToken()
         } catch {
             sessionState = .signedOut
         }
@@ -38,7 +42,9 @@ final class AppModel {
         await runBusy {
             user = try await api.login(email: email, password: password)
             sessionState = .signedIn
+            refreshSharedDraft()
             await refreshAll()
+            await syncStoredNativePushToken()
         }
     }
 
@@ -46,18 +52,26 @@ final class AppModel {
         await runBusy {
             user = try await api.register(name: name, email: email, password: password)
             sessionState = .signedIn
+            refreshSharedDraft()
             await refreshAll()
-            if user?.emailVerified == false { message = "Bitte bestätige jetzt deine E-Mail-Adresse. Wir haben dir eine Nachricht geschickt." }
+            await syncStoredNativePushToken()
+            if user?.emailVerified == false {
+                message = "Bitte bestätige jetzt deine E-Mail-Adresse. Wir haben dir eine Nachricht geschickt."
+            }
         }
     }
 
     func logout() async {
+        if let token = NativePushManager.storedToken, user?.emailVerified == true {
+            try? await api.unregisterNativePush(token: token, environment: NativePushManager.environment)
+        }
         await api.logout()
         user = nil
         checks = []
         routing = nil
         activities = []
         unreadActivityCount = 0
+        nativePushRegistered = false
         sessionState = .signedOut
     }
 
@@ -75,8 +89,15 @@ final class AppModel {
         } catch { message = error.localizedDescription }
     }
 
-    func refreshChecks() async { do { checks = try await api.checks() } catch { message = error.localizedDescription } }
-    func refreshPeople() async { do { routing = try await api.trustRouting() } catch { message = error.localizedDescription } }
+    func refreshChecks() async {
+        do { checks = try await api.checks() }
+        catch { message = error.localizedDescription }
+    }
+
+    func refreshPeople() async {
+        do { routing = try await api.trustRouting() }
+        catch { message = error.localizedDescription }
+    }
 
     func refreshActivities() async {
         do {
@@ -84,6 +105,15 @@ final class AppModel {
             activities = result.activities
             unreadActivityCount = result.unreadCount
         } catch { message = error.localizedDescription }
+    }
+
+    func refreshSharedDraft() {
+        pendingSharedDraft = SharedDraftStore.load()
+    }
+
+    func consumeSharedDraft() {
+        SharedDraftStore.consume()
+        pendingSharedDraft = nil
     }
 
     func markActivityRead(_ activity: ActivityItem) async {
@@ -123,22 +153,62 @@ final class AppModel {
         }
     }
 
+    func enableNativePush() async {
+        do {
+            let granted = try await NativePushManager.requestAuthorization()
+            guard granted else {
+                message = "Benachrichtigungen sind ausgeschaltet. Du kannst sie später in den iPhone-Einstellungen erlauben."
+                return
+            }
+            if let token = NativePushManager.storedToken {
+                await syncNativePushToken(token)
+            } else {
+                message = "Benachrichtigungen werden eingerichtet."
+            }
+        } catch {
+            message = "Benachrichtigungen konnten nicht eingerichtet werden. Bitte versuche es später erneut."
+        }
+    }
+
+    func syncNativePushToken(_ token: String) async {
+        guard sessionState == .signedIn, user?.emailVerified == true else { return }
+        do {
+            try await api.registerNativePush(token: token, environment: NativePushManager.environment)
+            nativePushRegistered = true
+        } catch {
+            nativePushRegistered = false
+        }
+    }
+
     func resendVerification() async {
-        await runBusy { try await api.resendVerification(); message = "Bestätigungs-E-Mail wurde erneut gesendet." }
+        await runBusy {
+            try await api.resendVerification()
+            message = "Bestätigungs-E-Mail wurde erneut gesendet."
+        }
     }
 
     func setPresence(_ status: String) async {
-        await runBusy { try await api.updatePresence(status: status, durationMinutes: status == "neutral" ? nil : 240); routing = try await api.trustRouting() }
+        await runBusy {
+            try await api.updatePresence(status: status, durationMinutes: status == "neutral" ? nil : 240)
+            routing = try await api.trustRouting()
+        }
     }
 
     func invite(email: String) async -> String? {
         var code: String?
-        await runBusy { code = try await api.invite(email: email).code; message = "Einladung wurde erstellt. Code: \(code ?? "")" }
+        await runBusy {
+            code = try await api.invite(email: email).code
+            message = "Einladung wurde erstellt. Code: \(code ?? "")"
+        }
         return code
     }
 
     func accept(code: String) async {
-        await runBusy { try await api.acceptInvitation(code: code); routing = try await api.trustRouting(); message = "Vertrauensperson wurde verbunden." }
+        await runBusy {
+            try await api.acceptInvitation(code: code)
+            routing = try await api.trustRouting()
+            message = "Vertrauensperson wurde verbunden."
+        }
     }
 
     func createCheck(
@@ -165,12 +235,20 @@ final class AppModel {
 
     func respond(_ check: CheckItem, recommendation: Recommendation, note: String) async -> CheckItem? {
         var updated: CheckItem?
-        await runBusy { updated = try await api.respond(checkID: check.id, recommendation: recommendation, note: note); await refreshChecks(); await refreshActivities() }
+        await runBusy {
+            updated = try await api.respond(checkID: check.id, recommendation: recommendation, note: note)
+            await refreshChecks()
+            await refreshActivities()
+        }
         return updated
     }
 
     func close(_ check: CheckItem) async {
-        await runBusy { try await api.close(checkID: check.id); await refreshChecks(); await refreshActivities() }
+        await runBusy {
+            try await api.close(checkID: check.id)
+            await refreshChecks()
+            await refreshActivities()
+        }
     }
 
     func deleteAccount(password: String) async {
@@ -181,9 +259,15 @@ final class AppModel {
             routing = nil
             activities = []
             unreadActivityCount = 0
+            nativePushRegistered = false
             sessionState = .signedOut
             message = "Dein ZweiCheck-Konto wurde gelöscht."
         }
+    }
+
+    private func syncStoredNativePushToken() async {
+        guard let token = NativePushManager.storedToken else { return }
+        await syncNativePushToken(token)
     }
 
     private func fragmentValues(_ fragment: String?) -> [String: String] {
@@ -201,6 +285,7 @@ final class AppModel {
         guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
-        do { try await work() } catch { message = error.localizedDescription }
+        do { try await work() }
+        catch { message = error.localizedDescription }
     }
 }

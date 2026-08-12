@@ -3,6 +3,8 @@ import SwiftUI
 @main
 @MainActor
 struct ZweiCheckApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
     @State private var model = AppModel()
 
     var body: some Scene {
@@ -14,6 +16,19 @@ struct ZweiCheckApp: App {
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                     if let url = activity.webpageURL { model.handleIncomingURL(url) }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .zweiCheckDidReceiveAPNSToken)) { notification in
+                    guard let token = notification.object as? String else { return }
+                    Task { await model.syncNativePushToken(token) }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .zweiCheckOpenNotificationURL)) { notification in
+                    guard let url = notification.object as? URL else { return }
+                    model.handleIncomingURL(url)
+                }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                model.refreshSharedDraft()
+            }
         }
     }
 }

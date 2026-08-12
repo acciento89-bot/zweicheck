@@ -10,6 +10,18 @@ function integerValue(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function privateKeyValue() {
+  const direct = String(process.env.APNS_PRIVATE_KEY || '').replace(/\\n/g, '\n').trim();
+  if (direct) return direct;
+  const encoded = String(process.env.APNS_PRIVATE_KEY_B64 || '').trim();
+  if (!encoded) return '';
+  try {
+    return Buffer.from(encoded, 'base64').toString('utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
 const config = {
   port: integerValue(process.env.PORT, 3000),
   appBaseUrl: (process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
@@ -34,6 +46,12 @@ const config = {
     subject: process.env.VAPID_SUBJECT || 'mailto:noreply@kamilunavo.com',
     publicKey: process.env.VAPID_PUBLIC_KEY || '',
     privateKey: process.env.VAPID_PRIVATE_KEY || ''
+  },
+  apns: {
+    teamId: process.env.APNS_TEAM_ID || 'TKG684N5GL',
+    keyId: process.env.APNS_KEY_ID || '',
+    privateKey: privateKeyValue(),
+    bundleId: process.env.APNS_BUNDLE_ID || 'de.kamilunavo.zweicheck'
   }
 };
 

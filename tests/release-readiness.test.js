@@ -52,14 +52,15 @@ test('apple association is restricted to ZweiCheck invitation and check fragment
   assert.equal(details.components[1]['#'], 'check=*');
 });
 
-test('app store release documentation covers review, privacy and native minimum functionality', () => {
+test('app store release documentation covers review, privacy and implemented native functionality', () => {
   assert.match(release, /Xcode 26/);
   assert.match(release, /de\.kamilunavo\.zweicheck/);
   assert.match(release, /TKG684N5GL/);
   assert.match(release, /Privacy Policy/);
   assert.match(release, /Review-Konto A/);
-  assert.match(release, /Share Sheet \/ Share Extension/);
-  assert.match(release, /native Push Notifications über APNs/);
+  assert.match(release, /echte iOS Share Extension/);
+  assert.match(release, /native APNs-Registrierung/);
+  assert.match(release, /APNS_PRIVATE_KEY_B64/);
   assert.match(release, /Passwörter niemals im Repository speichern/);
 });
 

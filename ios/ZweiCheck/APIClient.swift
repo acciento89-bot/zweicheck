@@ -49,6 +49,22 @@ final class APIClient {
         _ = try await requestData("/api/activities/read-all", method: "POST")
     }
 
+    func registerNativePush(token: String, environment: String) async throws {
+        _ = try await requestData(
+            "/api/push/native/tokens",
+            method: "POST",
+            json: ["token": token, "environment": environment]
+        )
+    }
+
+    func unregisterNativePush(token: String, environment: String) async throws {
+        _ = try await requestData(
+            "/api/push/native/tokens",
+            method: "DELETE",
+            json: ["token": token, "environment": environment]
+        )
+    }
+
     func updatePresence(status: String, durationMinutes: Int?) async throws {
         var body: [String: Any] = ["status": status]
         if let durationMinutes { body["durationMinutes"] = durationMinutes }

@@ -10,6 +10,8 @@ ZweiCheck soll als eigenständige iOS-App veröffentlicht werden. Die bestehende
 
 - Build für Einreichungen ab 28.04.2026: Xcode 26 oder neuer mit iOS-26-SDK oder neuer.
 - Bundle Identifier: `de.kamilunavo.zweicheck`
+- Share Extension: `de.kamilunavo.zweicheck.share`
+- App Group: `group.de.kamilunavo.zweicheck`
 - Apple Developer Team: `TKG684N5GL`
 - Produktversion: `1.0.0`
 - Mindestziel für die erste native Version: iOS 17+; Build selbst mit aktuellem iOS-26-SDK.
@@ -37,8 +39,10 @@ Funktionen:
 - private Vertrauenspersonen verbinden
 - verdächtige Nachrichten, Zahlungen, Links und Datenfreigaben gemeinsam prüfen
 - optional Bilder und Screenshots mit dem systemeigenen iOS-Fotopicker mitschicken
+- Inhalte aus dem iOS-Teilen-Menü als privaten ZweiCheck-Entwurf übernehmen
 - klare menschliche Rückmeldung statt automatischer KI-Entscheidung
 - native Aktivitäten mit Ungelesen-Zähler
+- optionale native Push-Benachrichtigungen
 - Erinnerungs- und Ausweichperson-Funktion bei offenen Anfragen
 - eigene Daten herunterladen
 - Konto direkt in ZweiCheck löschen
@@ -69,21 +73,21 @@ Nach Deployment:
 
 ## App Privacy – Arbeitsentwurf für App Store Connect
 
-Die finale Auswahl muss exakt mit der nativen iOS-Version übereinstimmen.
+Die finale Auswahl muss vor Einreichung noch einmal direkt gegen den zu diesem Zeitpunkt aktuellen App-Store-Connect-Fragebogen geprüft werden.
 
-Voraussichtlich deklarieren:
+Arbeitsstand für die native 1.0:
 
 - Contact Info → Name, Email Address: für Konto, Authentifizierung und Vertrauensverbindungen; mit Identität verknüpft; kein Tracking.
-- User Content → Photos or Videos, Other User Content: für optionale Screenshots/Bilder und Prüfbeschreibungen; mit Identität verknüpft; kein Tracking.
-- Financial Info → Other Financial Info: nur falls der optionale Betrag im nativen Client weiterhin angeboten wird; Funktionsbereitstellung; kein Tracking.
-- Identifiers → Device ID: nur wenn der native Push-Aufbau einen gerätebezogenen Push-Identifier serverseitig speichert; Funktionsbereitstellung; kein Tracking.
-- Diagnostics nur dann angeben, wenn die native App künftig Crash-/Diagnosedaten an einen Dienst sendet. Für 1.0 ist kein externer Analytics- oder Crash-SDK vorgesehen.
+- User Content → Photos or Videos, Other User Content: für optionale Screenshots/Bilder, geteilte Entwürfe und Prüfbeschreibungen; mit Identität verknüpft, sobald der Nutzer die Prüfanfrage absendet; kein Tracking.
+- Financial Info → Other Financial Info: wegen des optionalen vom Nutzer selbst eingegebenen Betrags in einer Prüfanfrage; Funktionsbereitstellung; kein Tracking. Diese Kategorie vor Einreichung noch einmal gegen Apples aktuelle Definition prüfen.
+- Identifiers → Device ID / gerätebezogener Push-Identifier: APNs-Gerätetoken wird dem angemeldeten Konto serverseitig zugeordnet, ausschließlich zur Zustellung von ZweiCheck-Benachrichtigungen; mit Identität verknüpft; kein Tracking.
+- Diagnostics: für 1.0 ist kein externer Analytics- oder Crash-SDK vorgesehen. Nur angeben, falls vor Release noch ein solcher Dienst ergänzt wird.
 
-Keine Daten werden für Werbung oder Tracking verwendet.
+Keine Daten werden für Werbung oder Tracking verwendet und keine Daten werden an Werbenetzwerke verkauft.
 
 ## Altersfreigabe
 
-Erwartung: 4+ nach aktuellem Apple-Fragebogen, weil private User-Generated-Content-/Messaging-Funktionen allein in der neuen Rating-Systematik grundsätzlich mit 4+ vereinbar sein können. Die tatsächliche Freigabe wird von App Store Connect anhand des aktuellen Fragebogens erzeugt.
+Erwartung: 4+ nach aktuellem Apple-Fragebogen. Die tatsächliche Freigabe wird von App Store Connect anhand des zum Einreichungszeitpunkt aktuellen Fragebogens erzeugt und muss dort final bestätigt werden.
 
 ## Review-Zugang
 
@@ -109,7 +113,8 @@ Testablauf:
 3. Review-Konto B als Vertrauensperson auswählen und eine Prüfanfrage absenden.
 4. Mit Review-Konto B anmelden und die Anfrage beantworten.
 5. Wieder Konto A öffnen; die Antwort erscheint in Aktivitäten und in der Prüfung.
-6. Konto → „Du bestimmst über dein Konto“ zeigt Datenexport und Kontolöschung.
+6. Optional eine Nachricht, URL oder einen Screenshot über das iOS-Teilen-Menü mit „Mit ZweiCheck prüfen“ teilen. Der Inhalt wird nur lokal als Entwurf gespeichert und erst nach Auswahl der Vertrauensperson und ausdrücklichem Absenden übertragen.
+7. Konto zeigt Datenschutz, Support, Push-Aktivierung und Kontolöschung.
 
 Die Datenschutzrichtlinie ist in der App unter Konto erreichbar. Konto- und Dateiinhalte sind nicht öffentlich.
 
@@ -124,6 +129,7 @@ Für die erste Einreichung mindestens folgende Motive vorbereiten:
 5. klare Rückmeldung „Erst persönlich klären“ oder „Nicht handeln“
 6. Vertrauenspersonen / Verfügbarkeitsstatus
 7. Aktivitäten / Antwort erhalten
+8. optional: Share Extension „Mit ZweiCheck prüfen“
 
 Keine echten Namen, E-Mail-Adressen, Telefonnummern, Bankdaten oder realen Betrugsnachrichten in Store-Screenshots verwenden.
 
@@ -138,27 +144,43 @@ Bereits umgesetzt:
 - AASA-Datei für Einladungscodes und direkte Prüfanfragen
 - sichere Sitzungsspeicherung im iOS Keychain
 - native Aktivitäten und Deep-Link-Navigation
-- systemgerechte Accessibility / Dynamic Type durch native SwiftUI-Komponenten
+- native APNs-Registrierung mit ausdrücklicher Nutzerfreigabe
+- serverseitige APNs Provider API über HTTP/2 und tokenbasierte Authentifizierung
+- Notification-Taps führen direkt zur betreffenden Prüfanfrage
+- echte iOS Share Extension für Text, Web-Links und bis zu drei Bilder/Screenshots
+- Share Extension speichert Inhalte zuerst ausschließlich im privaten App-Group-Container; der Nutzer wählt anschließend in ZweiCheck selbst die Vertrauensperson und bestätigt das Absenden
+- systemgerechte Accessibility / Dynamic Type durch native SwiftUI-/UIKit-Komponenten
 
-Vor dem signierten Release noch geplant:
+Optionaler Feinschliff vor oder nach 1.0:
 
-- native Push Notifications über APNs
-- Share Sheet / Share Extension: verdächtigen Text, Link oder Screenshot direkt an ZweiCheck übergeben
 - native Haptik bei wichtigen Bestätigungen
 
 Das Kernprodukt und Backend bleiben identisch; die native Oberfläche nutzt dieselben abgesicherten API-Endpunkte.
 
+## APNs-Konfiguration in Produktion
+
+Der Server startet ohne Apple-Schlüssel weiterhin normal; native APNs-Zustellung ist dann lediglich deaktiviert. Nach Erstellung eines Apple Push Authentication Keys werden direkt in der Produktionsumgebung gesetzt:
+
+- `APNS_TEAM_ID=TKG684N5GL`
+- `APNS_KEY_ID=<Apple Key ID>`
+- `APNS_PRIVATE_KEY_B64=<Base64 des privaten .p8 Keys>`
+- `APNS_BUNDLE_ID=de.kamilunavo.zweicheck`
+
+Der private `.p8`-Key wird niemals im Repository, in Chat-Verläufen oder Support-Tickets gespeichert.
+
 ## Vor Einreichung noch extern nötig
 
-Diese Punkte können nicht im Server-Repository allein erledigt werden:
+Diese Punkte benötigen Apple Developer / App Store Connect und können nicht allein durch das Server-Repository abgeschlossen werden:
 
 - App-ID `de.kamilunavo.zweicheck` im Apple Developer Account registrieren
-- Associated Domains Capability für die App-ID aktivieren
-- Xcode-26-Projekt signieren
-- APNs Capability / Push-Key bzw. Zertifikat konfigurieren
-- App-Icon als Xcode Asset Catalog finalisieren
-- Screenshots im Simulator bzw. auf Geräten aufnehmen
+- Push Notifications, Associated Domains und App Groups für die Haupt-App aktivieren
+- App Group `group.de.kamilunavo.zweicheck` registrieren
+- Share-Extension-Identifier `de.kamilunavo.zweicheck.share` registrieren und derselben App Group zuordnen
+- Apple Push Authentication Key erstellen/zuordnen; Key ID und privaten `.p8`-Key ausschließlich direkt in der Produktionsumgebung konfigurieren
+- Xcode-26-Projekt signieren / Provisioning vervollständigen
+- finales App-Icon als Xcode Asset Catalog einbinden
+- Store-Screenshots im Simulator bzw. auf Geräten aufnehmen
 - Demo-Zugangsdaten in App Store Connect eintragen
-- App Privacy, Altersfreigabe, DSA-/Trader-Status und Verfügbarkeit in App Store Connect ausfüllen
-- Build über TestFlight testen
+- App Privacy, Altersfreigabe, DSA-/Trader-Status und Verfügbarkeit in App Store Connect final ausfüllen
+- signierten Build über TestFlight auf echten Geräten testen
 - anschließend zur App Review einreichen
