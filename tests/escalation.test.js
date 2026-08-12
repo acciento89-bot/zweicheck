@@ -79,16 +79,42 @@ test('escalation client is additive and does not use a MutationObserver', () => 
   assert.match(css, /zc-escalation-card/);
 });
 
-test('phase 3.5 assets and server integration are shipped', () => {
+test('phase 3.5 assets and server integration remain shipped', () => {
   assert.match(index, /zweicheck-build" content="escalation-v1"/);
-  assert.match(index, /escalation-client\.js\?v=1/);
-  assert.match(index, /escalation\.css\?v=1/);
-  assert.match(serviceWorker, /zweicheck-phase3-v9/);
-  assert.match(serviceWorker, /escalation-client\.js\?v=1/);
+  assert.match(index, /escalation-client\.js\?v=2/);
+  assert.match(index, /escalation\.css\?v=2/);
+  assert.match(serviceWorker, /zweicheck-phase3-v10/);
+  assert.match(serviceWorker, /escalation-client\.js\?v=2/);
   assert.match(patch, /registerEscalationRoutes/);
   assert.match(patch, /createCheckEscalation/);
   assert.match(patch, /startEscalationWorker/);
   assert.match(patch, /check_reminder/);
+});
+
+test('phase 3.6 presents the main check flow in four simple senior-first steps', () => {
+  assert.match(index, /zweicheck-ux" content="senior-first-v1"/);
+  assert.match(client, /Wir gehen Schritt für Schritt/);
+  assert.match(client, /Schritt \$\{number\} von 4/);
+  assert.match(client, /Wer soll dir helfen\?/);
+  assert.match(client, /Worum geht es\?/);
+  assert.match(client, /Was ist passiert\?/);
+  assert.match(client, /Alles richtig\?/);
+  assert.match(client, /Mehr Möglichkeiten/);
+  assert.match(client, /Ich bin unsicher – prüfen lassen/);
+  assert.match(client, /Danach automatisch die zweite Person fragen/);
+  assert.match(css, /zc-simple-step/);
+  assert.match(css, /min-height: 54px/);
+  assert.match(css, /focus-visible/);
+});
+
+test('advanced functions stay available but are hidden behind a plain-language details section', () => {
+  assert.match(client, /data-zc-simple-advanced-body/);
+  assert.match(client, /Wer soll sonst helfen\? \(optional\)/);
+  assert.match(client, /Soll ZweiCheck nochmal erinnern\?/);
+  assert.match(client, /Nein, nicht erinnern/);
+  assert.match(client, /Andere Person fragen/);
+  assert.doesNotMatch(client, /Eskalation optional/);
+  assert.doesNotMatch(client, /Eskalationsplan/);
 });
 
 test('production lifecycle remains on the proven start path', () => {
