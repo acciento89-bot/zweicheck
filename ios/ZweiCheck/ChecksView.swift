@@ -150,6 +150,9 @@ struct CheckDetailView: View {
     @ViewBuilder private func attachmentSection(_ attachments: [AttachmentItem]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Bilder").font(.headline)
+            Text("Bild antippen zum Vergrößern")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(attachments) { attachment in
@@ -323,30 +326,54 @@ private struct AttachmentPreview: View {
     let attachment: AttachmentItem
     @State private var image: UIImage?
     @State private var loading = true
+    @State private var preview: PreviewImage?
 
     var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else if loading {
-                ProgressView()
-            } else {
-                Image(systemName: "photo")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
+        Button {
+            guard let image else { return }
+            preview = PreviewImage(image: image, label: attachment.originalName)
+        } label: {
+            ZStack(alignment: .bottomTrailing) {
+                Group {
+                    if let image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else if loading {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "photo")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if image != nil {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.white)
+                        .padding(9)
+                        .background(.black.opacity(0.6), in: Circle())
+                        .padding(8)
+                }
             }
+            .frame(width: 160, height: 160)
+            .background(AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.navy.opacity(0.12)))
         }
-        .frame(width: 160, height: 160)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .buttonStyle(.plain)
+        .disabled(image == nil)
         .accessibilityLabel(attachment.originalName)
+        .accessibilityHint(image == nil ? "Bild wird geladen" : "Doppeltippen zum Vergrößern")
         .task {
             if let data = await model.attachmentData(id: attachment.id) {
                 image = UIImage(data: data)
             }
             loading = false
+        }
+        .fullScreenCover(item: $preview) { item in
+            ZoomableImageViewer(preview: item)
         }
     }
 }
