@@ -39,6 +39,15 @@ final class APIClient {
 
     func checks() async throws -> [CheckItem] { try await request("/api/checks", as: ChecksEnvelope.self).checks }
     func trustRouting() async throws -> TrustRoutingEnvelope { try await request("/api/trust-routing", as: TrustRoutingEnvelope.self) }
+    func activities() async throws -> ActivitiesEnvelope { try await request("/api/activities?limit=50", as: ActivitiesEnvelope.self) }
+
+    func markActivityRead(id: String) async throws -> ActivityItem {
+        try await request("/api/activities/\(id)/read", method: "PATCH", as: ActivityEnvelope.self).activity
+    }
+
+    func markAllActivitiesRead() async throws {
+        _ = try await requestData("/api/activities/read-all", method: "POST")
+    }
 
     func updatePresence(status: String, durationMinutes: Int?) async throws {
         var body: [String: Any] = ["status": status]
@@ -54,7 +63,13 @@ final class APIClient {
         let _: AcceptInvitationResult = try await request("/api/invitations/accept", method: "POST", json: ["code": code])
     }
 
-    func createCheck(reviewerID: String, category: CheckCategory, description: String, amount: String?) async throws -> CheckItem {
+    func createCheck(
+        reviewerID: String,
+        category: CheckCategory,
+        description: String,
+        amount: String?,
+        images: [UploadImage]
+    ) async throws -> CheckItem {
         var fields = [
             "reviewerId": reviewerID,
             "category": category.rawValue,
@@ -62,12 +77,17 @@ final class APIClient {
             "urgency": "none"
         ]
         if let amount, !amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { fields["amount"] = amount }
+
         let boundary = "ZweiCheck-\(UUID().uuidString)"
         var body = Data()
         for (name, value) in fields {
-            body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".data(using: .utf8)!)
+            appendField(name: name, value: value, boundary: boundary, to: &body)
+        }
+        for image in images.prefix(3) {
+            appendFile(fieldName: "images", image: image, boundary: boundary, to: &body)
         }
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
         var request = URLRequest(url: baseURL.appending(path: "/api/checks"))
         request.httpMethod = "POST"
         request.httpBody = body
@@ -118,6 +138,18 @@ final class APIClient {
     private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do { return try JSONDecoder().decode(type, from: data) }
         catch { throw APIClientError.message("Die Serverantwort konnte nicht gelesen werden.") }
+    }
+
+    private func appendField(name: String, value: String, boundary: String, to body: inout Data) {
+        body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".data(using: .utf8)!)
+    }
+
+    private func appendFile(fieldName: String, image: UploadImage, boundary: String, to body: inout Data) {
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(image.fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(image.mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(image.data)
+        body.append("\r\n".data(using: .utf8)!)
     }
 
     private func persistSessionCookie() {

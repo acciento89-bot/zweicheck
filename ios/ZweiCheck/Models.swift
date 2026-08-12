@@ -77,9 +77,31 @@ struct CheckItem: Codable, Identifiable, Equatable {
 struct ChecksEnvelope: Codable { let checks: [CheckItem] }
 struct CheckEnvelope: Codable { let check: CheckItem }
 
+struct ActivityItem: Codable, Identifiable, Equatable {
+    let id: String
+    let eventType: String
+    let icon: String
+    let title: String
+    let body: String
+    let actorName: String?
+    let checkId: String?
+    let invitationId: String?
+    let connectionId: String?
+    let readAt: String?
+    let createdAt: String
+
+    var isUnread: Bool { readAt == nil }
+}
+
+struct ActivitiesEnvelope: Codable {
+    let activities: [ActivityItem]
+    let unreadCount: Int
+    let nextBefore: String?
+}
+
+struct ActivityEnvelope: Codable { let activity: ActivityItem }
 struct DeleteResult: Codable { let deleted: Bool? }
 struct VerificationResult: Codable { let sent: Bool?; let alreadyVerified: Bool? }
-
 struct APIErrorEnvelope: Codable { let error: String; let code: String? }
 
 enum CheckCategory: String, CaseIterable, Identifiable {

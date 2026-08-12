@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     let model: AppModel
     @State private var showingNewCheck = false
+    @State private var showingActivities = false
 
     var body: some View {
         ScrollView {
@@ -44,7 +45,31 @@ struct HomeView: View {
             .padding(20)
         }
         .navigationTitle("Start")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingActivities = true
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "bell.fill")
+                            .font(.title3)
+                        if model.unreadActivityCount > 0 {
+                            Text(model.unreadActivityCount > 99 ? "99+" : "\(model.unreadActivityCount)")
+                                .font(.caption2.bold())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .frame(minWidth: 18, minHeight: 18)
+                                .background(.red, in: Capsule())
+                                .offset(x: 10, y: -9)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel(model.unreadActivityCount > 0 ? "Aktivitäten, \(model.unreadActivityCount) ungelesen" : "Aktivitäten")
+                }
+            }
+        }
         .refreshable { await model.refreshAll() }
         .sheet(isPresented: $showingNewCheck) { NewCheckFlow(model: model) }
+        .sheet(isPresented: $showingActivities) { ActivityView(model: model) }
     }
 }
