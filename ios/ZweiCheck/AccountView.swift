@@ -113,7 +113,7 @@ struct AccountView: View {
             }
 
             Section {
-                Text("ZweiCheck 1.0.0 · Build 2")
+                Text(versionText)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -128,6 +128,12 @@ struct AccountView: View {
         } message: {
             Text("Diese Aktion kann nicht rückgängig gemacht werden.")
         }
+    }
+
+    private var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "–"
+        return "ZweiCheck \(version) · Build \(build)"
     }
 
     @MainActor
