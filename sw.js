@@ -1,8 +1,8 @@
-const CACHE_NAME = 'zweicheck-phase3-v12';
+const CACHE_NAME = 'zweicheck-phase3-v13';
 const SHELL = [
   '/',
   '/index.html',
-  '/app.css',
+  '/app.css?v=2',
   '/app.js?v=6',
   '/deep-link.js?v=1',
   '/push-client.js?v=1',
