@@ -142,6 +142,10 @@ jobs:
           docker run --rm --entrypoint sh zweicheck:test -c '
             grep -Fq "observer.observe(appRoot, { childList: true });" /app/trust-routing.js &&
             ! grep -Fq "observer.observe(document.documentElement, { childList: true, subtree: true });" /app/trust-routing.js &&
+            grep -Fq "old.innerHTML === card.innerHTML" /app/trust-routing.js &&
+            grep -Fq "activeReminderControl" /app/escalation-client.js &&
+            grep -Fq "userIsInteracting" /app/escalation-client.js &&
+            grep -Fq "zweicheck:data-refreshed" /app/app.js &&
             grep -Fq "registerEscalationRoutes(app" /app/server/index.js &&
             grep -Fq "startEscalationWorker();" /app/server/index.js &&
             grep -Fq "reminderMinutes: req.body.escalationReminderMinutes" /app/server/index.js &&
@@ -160,7 +164,7 @@ jobs:
             grep -Fq "senior-a11y-v1" /app/index.html &&
             grep -Fq "class=\"skip-link\"" /app/index.html &&
             grep -Fq "prefers-reduced-motion: reduce" /app/app.css &&
-            grep -Fq "zweicheck-phase3-v15" /app/sw.js &&
+            grep -Fq "zweicheck-phase3-v16" /app/sw.js &&
             grep -Fq "\"id\": \"/\"" /app/manifest.webmanifest &&
             grep -Fq "data-zc-delete-form" /app/account-client.js &&
             grep -Fq "Datenschutz bei ZweiCheck" /app/privacy.html &&
