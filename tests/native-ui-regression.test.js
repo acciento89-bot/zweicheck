@@ -56,7 +56,7 @@ test('Premium Family is clearly differentiated from the free plan', () => {
   assert.match(onboarding, /Premium Familie/);
   assert.match(onboarding, /39,99 € \/ Jahr/);
   assert.match(flow, /imageLimit: Int \{ model\.premium\.isPremiumFamily \? 3 : 1 \}/);
-  assert.match(flow, /Automatisch eine zweite Vertrauensperson/);
+  assert.match(flow, /zweite Vertrauensperson fragen/);
   assert.match(account, /Bis zu 3 Bilder pro Prüfung statt 1/);
   assert.match(account, /Automatische Erinnerung nach 5–120 Minuten/);
 });
