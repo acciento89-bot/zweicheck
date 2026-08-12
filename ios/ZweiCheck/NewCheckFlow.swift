@@ -18,6 +18,7 @@ struct NewCheckFlow: View {
     @State private var showAdvanced = false
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var images: [UploadImage]
+    @State private var imagePreview: PreviewImage?
     @State private var imageError: String?
     @State private var preparingImages = false
     @FocusState private var descriptionFocused: Bool
@@ -83,6 +84,9 @@ struct NewCheckFlow: View {
             .onChange(of: pickerItems) { _, items in
                 Task { await loadImages(items) }
             }
+        }
+        .fullScreenCover(item: $imagePreview) { item in
+            ZoomableImageViewer(preview: item)
         }
     }
 
@@ -188,17 +192,35 @@ struct NewCheckFlow: View {
                 if let imageError { Text(imageError).foregroundStyle(.red).font(.subheadline) }
 
                 if !images.isEmpty {
+                    Text("Bild antippen zum Vergrößern")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(images) { image in
                                 if let uiImage = UIImage(data: image.data) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 96, height: 96)
-                                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.16)))
-                                        .accessibilityLabel("Ausgewähltes Bild")
+                                    Button {
+                                        imagePreview = PreviewImage(image: uiImage, label: "Ausgewähltes Bild")
+                                    } label: {
+                                        ZStack(alignment: .bottomTrailing) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 104, height: 104)
+                                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.16)))
+
+                                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                                .font(.caption.bold())
+                                                .foregroundStyle(.white)
+                                                .padding(7)
+                                                .background(.black.opacity(0.58), in: Circle())
+                                                .padding(6)
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("Ausgewähltes Bild")
+                                    .accessibilityHint("Doppeltippen zum Vergrößern")
                                 }
                             }
                         }
