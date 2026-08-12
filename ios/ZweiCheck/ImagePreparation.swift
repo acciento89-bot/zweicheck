@@ -27,7 +27,7 @@ enum ImagePreparation {
             }
         }
 
-        if let result, result.count > maximumBytes {
+        if let current = result, current.count > maximumBytes {
             image = normalized(image, maximumDimension: 1500)
             result = image.jpegData(compressionQuality: 0.55)
         }
