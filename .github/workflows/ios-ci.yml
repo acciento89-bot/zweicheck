@@ -59,5 +59,24 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ZweiCheckDerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             build
+      - name: App- und Share-Versionen vergleichen
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PLIST="$RUNNER_TEMP/ZweiCheckDerivedData/Build/Products/Debug-iphonesimulator/ZweiCheck.app/Info.plist"
+          SHARE_PLIST="$RUNNER_TEMP/ZweiCheckDerivedData/Build/Products/Debug-iphonesimulator/ZweiCheck.app/PlugIns/ZweiCheckShare.appex/Info.plist"
+          test -f "$APP_PLIST"
+          test -f "$SHARE_PLIST"
+
+          APP_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PLIST")
+          SHARE_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SHARE_PLIST")
+          APP_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PLIST")
+          SHARE_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$SHARE_PLIST")
+
+          echo "App:   ${APP_VERSION} (${APP_BUILD})"
+          echo "Share: ${SHARE_VERSION} (${SHARE_BUILD})"
+          test "$APP_VERSION" = "$SHARE_VERSION"
+          test "$APP_BUILD" = "$SHARE_BUILD"
