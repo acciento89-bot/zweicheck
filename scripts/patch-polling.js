@@ -21,3 +21,17 @@ if (!source.includes(newDetail)) {
 }
 
 fs.writeFileSync(file, source);
+
+const trustFile = 'trust-routing.js';
+if (fs.existsSync(trustFile)) {
+  let trustSource = fs.readFileSync(trustFile, 'utf8');
+  const oldObserver = "  observer.observe(document.documentElement, { childList: true, subtree: true });";
+  const newObserver = `  const appRoot = document.getElementById('app');\n  if (appRoot) observer.observe(appRoot, { childList: true });`;
+
+  if (!trustSource.includes(newObserver)) {
+    if (!trustSource.includes(oldObserver)) throw new Error('Expected trust routing observer was not found in trust-routing.js');
+    trustSource = trustSource.replace(oldObserver, newObserver);
+  }
+
+  fs.writeFileSync(trustFile, trustSource);
+}
