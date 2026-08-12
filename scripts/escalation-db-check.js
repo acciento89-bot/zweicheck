@@ -124,7 +124,7 @@ async function main() {
     await db.query('DELETE FROM check_requests WHERE id = ANY($1::uuid[])', [[checkId, cancelCheckId]]).catch(() => {});
     await db.query('DELETE FROM trust_connections WHERE id = ANY($1::uuid[])', [[connectionA, connectionB]]).catch(() => {});
     await db.query('DELETE FROM users WHERE id = ANY($1::uuid[])', [[requesterId, primaryId, fallbackId]]).catch(() => {});
-    await db.close?.().catch?.(() => {});
+    await db.pool.end().catch(() => {});
   }
 }
 
