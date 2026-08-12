@@ -1,4 +1,5 @@
 const db = require('./db');
+const { registerAccountRoutes } = require('./account');
 
 const EVENT_ICONS = {
   check_created: '✓',
@@ -42,7 +43,10 @@ function serializeActivity(row) {
   };
 }
 
-function registerActivityRoutes(app, { requireAuth, asyncHandler, httpError }) {
+function registerActivityRoutes(app, dependencies) {
+  const { requireAuth, asyncHandler, httpError } = dependencies;
+  registerAccountRoutes(app, dependencies);
+
   app.get('/api/activities', requireAuth, asyncHandler(async (req, res) => {
     const filter = normalizeFilter(req.query.filter);
     const before = parseBefore(req.query.before);
