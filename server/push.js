@@ -3,6 +3,11 @@ const webpush = require('web-push');
 
 const { config } = require('./config');
 const db = require('./db');
+const {
+  isAPNsEnabled,
+  registerNativePushRoutes,
+  sendNativePushForUser
+} = require('./apns');
 
 const CATEGORY_LABELS = {
   message: 'Nachricht oder Anruf',
@@ -64,12 +69,16 @@ function validateSubscription(input) {
   return { endpoint, keys: { p256dh, auth } };
 }
 
-function registerPushRoutes(app, {
-  requireAuth,
-  requireVerified,
-  asyncHandler,
-  httpError
-}) {
+function registerPushRoutes(app, dependencies) {
+  const {
+    requireAuth,
+    requireVerified,
+    asyncHandler,
+    httpError
+  } = dependencies;
+
+  registerNativePushRoutes(app, dependencies);
+
   app.get('/api/push/config', requireAuth, (_req, res) => {
     res.json({
       enabled: isPushEnabled(),
@@ -277,18 +286,16 @@ async function processNotification(job) {
   }
 
   const { userId, payload } = buildPushPayload(job.event_type, row);
-  const subscriptions = await db.query(
-    `SELECT id, endpoint, p256dh, auth
-     FROM push_subscriptions
-     WHERE user_id = $1
-     ORDER BY created_at`,
-    [userId]
-  );
-
-  if (!subscriptions.rowCount) {
-    await markNotification(job.id, 'skipped', 'Keine aktive Push-Anmeldung');
-    return;
-  }
+  const webEnabled = configureWebPush();
+  const subscriptions = webEnabled
+    ? await db.query(
+      `SELECT id, endpoint, p256dh, auth
+       FROM push_subscriptions
+       WHERE user_id = $1
+       ORDER BY created_at`,
+      [userId]
+    )
+    : { rows: [], rowCount: 0 };
 
   let sent = 0;
   const transientErrors = [];
@@ -312,17 +319,27 @@ async function processNotification(job) {
     }
   }
 
+  const nativeResult = await sendNativePushForUser(userId, payload);
+  sent += nativeResult.sent;
+  transientErrors.push(...nativeResult.errors);
+
   if (sent > 0) {
     await markNotification(job.id, 'sent');
     return;
   }
 
   if (transientErrors.length) throw transientErrors[0];
+  if (!subscriptions.rowCount && !nativeResult.registered) {
+    await markNotification(job.id, 'skipped', 'Keine aktive Push-Anmeldung');
+    return;
+  }
   await markNotification(job.id, 'skipped', 'Keine erreichbare Push-Anmeldung');
 }
 
 async function runPushWorkerOnce({ maxJobs = 30 } = {}) {
-  if (!configureWebPush()) return { processed: 0, disabled: true };
+  const webEnabled = configureWebPush();
+  const nativeEnabled = isAPNsEnabled();
+  if (!webEnabled && !nativeEnabled) return { processed: 0, disabled: true };
   if (workerRunning) return { processed: 0, skipped: true };
 
   workerRunning = true;
@@ -350,7 +367,8 @@ async function runPushWorkerOnce({ maxJobs = 30 } = {}) {
 }
 
 function startPushWorker() {
-  if (!configureWebPush() || initialTimer || intervalTimer) return;
+  const enabled = configureWebPush() || isAPNsEnabled();
+  if (!enabled || initialTimer || intervalTimer) return;
 
   const execute = () => {
     runPushWorkerOnce().catch((error) => {
