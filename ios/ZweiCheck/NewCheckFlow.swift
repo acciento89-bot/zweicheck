@@ -20,6 +20,8 @@ struct NewCheckFlow: View {
     @State private var images: [UploadImage]
     @State private var imageError: String?
     @State private var preparingImages = false
+    @FocusState private var descriptionFocused: Bool
+    @FocusState private var amountFocused: Bool
 
     init(model: AppModel) {
         self.model = model
@@ -38,6 +40,7 @@ struct NewCheckFlow: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     ProgressView(value: Double(step), total: 4)
+                        .tint(AppTheme.teal)
                     Text("Schritt \(step) von 4").font(.headline).foregroundStyle(AppTheme.teal)
                     content
                     HStack(spacing: 12) {
@@ -58,6 +61,7 @@ struct NewCheckFlow: View {
                 }
                 .padding(20)
             }
+            .background(AppTheme.background)
             .navigationTitle("Prüfen lassen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -89,6 +93,7 @@ struct NewCheckFlow: View {
                 Text("Wer soll dir helfen?").font(.title.bold())
                 Text("Wähle eine Person, die du kennst und der du vertraust.").foregroundStyle(.secondary)
                 ForEach(connections) { connection in
+                    let selected = reviewerID == connection.person.id
                     Button {
                         reviewerID = connection.person.id
                     } label: {
@@ -98,10 +103,14 @@ struct NewCheckFlow: View {
                                 Text(connection.presence.label).font(.subheadline).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: reviewerID == connection.person.id ? "checkmark.circle.fill" : "circle").font(.title2)
+                            Image(systemName: selected ? "checkmark.circle.fill" : "circle").font(.title2)
                         }
                         .padding(18)
                         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(selected ? AppTheme.teal : AppTheme.navy.opacity(0.16), lineWidth: selected ? 2.5 : 1)
+                        }
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(AppTheme.navy)
@@ -111,15 +120,20 @@ struct NewCheckFlow: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Worum geht es?").font(.title.bold())
                 ForEach(CheckCategory.allCases) { item in
+                    let selected = category == item
                     Button { category = item } label: {
                         HStack {
                             Image(systemName: item.symbol).frame(width: 28)
                             Text(item.label).font(.title3.bold())
                             Spacer()
-                            Image(systemName: category == item ? "checkmark.circle.fill" : "circle")
+                            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                         }
                         .padding(18)
                         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(selected ? AppTheme.teal : AppTheme.navy.opacity(0.16), lineWidth: selected ? 2.5 : 1)
+                        }
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(AppTheme.navy)
@@ -133,15 +147,35 @@ struct NewCheckFlow: View {
                         .font(.headline)
                         .foregroundStyle(AppTheme.teal)
                 }
-                Text("Beschreibe kurz, warum du unsicher bist. Keine Passwörter oder TANs eingeben.").foregroundStyle(.secondary)
-                TextEditor(text: $description)
-                    .frame(minHeight: 170)
-                    .padding(10)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
-                TextField("Betrag – optional, z. B. 49,90", text: $amount)
-                    .keyboardType(.decimalPad)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.title3)
+                Text("Beschreibe kurz, warum du unsicher bist. Keine Passwörter oder TANs eingeben.")
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Deine Beschreibung")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.navy)
+                    TextEditor(text: $description)
+                        .scrollContentBackground(.hidden)
+                        .font(.title3)
+                        .focused($descriptionFocused)
+                        .frame(minHeight: 170)
+                        .padding(12)
+                        .seniorInputSurface(focused: descriptionFocused, cornerRadius: 16)
+                        .accessibilityLabel("Beschreibung der Situation")
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Betrag – optional")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.navy)
+                    TextField("z. B. 49,90", text: $amount)
+                        .keyboardType(.decimalPad)
+                        .font(.title3)
+                        .focused($amountFocused)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 54)
+                        .seniorInputSurface(focused: amountFocused)
+                }
 
                 PhotosPicker(selection: $pickerItems, maxSelectionCount: 3, matching: .images) {
                     Label(images.isEmpty ? "Bilder auswählen – optional" : "Bilder ändern (\(images.count)/3)", systemImage: "photo.on.rectangle.angled")
@@ -163,6 +197,7 @@ struct NewCheckFlow: View {
                                         .scaledToFill()
                                         .frame(width: 96, height: 96)
                                         .clipShape(RoundedRectangle(cornerRadius: 14))
+                                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.16)))
                                         .accessibilityLabel("Ausgewähltes Bild")
                                 }
                             }
@@ -192,27 +227,41 @@ struct NewCheckFlow: View {
                 }
                 .pickerStyle(.menu)
                 .padding(14)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+                .seniorInputSurface()
 
                 DisclosureGroup("Mehr Möglichkeiten", isExpanded: $showAdvanced) {
                     VStack(alignment: .leading, spacing: 16) {
-                        Picker("Wer soll sonst helfen?", selection: $fallbackReviewerID) {
-                            Text("Keine zweite Person").tag("")
-                            ForEach(fallbackCandidates) { connection in
-                                Text("\(connection.person.name) · \(connection.presence.label)").tag(connection.person.id)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Wer soll sonst helfen? (optional)")
+                                .font(.headline)
+                            Picker("Wer soll sonst helfen?", selection: $fallbackReviewerID) {
+                                Text("Keine zweite Person").tag("")
+                                ForEach(fallbackCandidates) { connection in
+                                    Text("\(connection.person.name) · \(connection.presence.label)").tag(connection.person.id)
+                                }
                             }
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .seniorInputSurface()
                         }
-                        .pickerStyle(.menu)
 
-                        Picker("Soll ZweiCheck erinnern?", selection: $reminderMinutes) {
-                            Text("Nein, nicht erinnern").tag(0)
-                            Text("Nach 5 Minuten").tag(5)
-                            Text("Nach 15 Minuten").tag(15)
-                            Text("Nach 30 Minuten").tag(30)
-                            Text("Nach 60 Minuten").tag(60)
-                            Text("Nach 120 Minuten").tag(120)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Soll ZweiCheck erinnern?")
+                                .font(.headline)
+                            Picker("Soll ZweiCheck erinnern?", selection: $reminderMinutes) {
+                                Text("Nein, nicht erinnern").tag(0)
+                                Text("Nach 5 Minuten").tag(5)
+                                Text("Nach 15 Minuten").tag(15)
+                                Text("Nach 30 Minuten").tag(30)
+                                Text("Nach 60 Minuten").tag(60)
+                                Text("Nach 120 Minuten").tag(120)
+                            }
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .seniorInputSurface()
                         }
-                        .pickerStyle(.menu)
 
                         Toggle("Danach automatisch die zweite Person fragen", isOn: $autoReroute)
                             .disabled(reminderMinutes == 0 || fallbackReviewerID.isEmpty)
@@ -225,6 +274,7 @@ struct NewCheckFlow: View {
                 }
                 .padding(16)
                 .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.14)))
 
                 Text("Sende die Anfrage erst ab, wenn alles stimmt.").foregroundStyle(.secondary)
             }
@@ -248,6 +298,7 @@ struct NewCheckFlow: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.12)))
     }
 
     private func submit() {
