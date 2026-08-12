@@ -124,7 +124,7 @@ struct AccountView: View {
                     .font(.title2)
                     .foregroundStyle(.white)
                     .frame(width: 48, height: 48)
-                    .background(AppTheme.navy, in: RoundedRectangle(cornerRadius: 14))
+                    .background(AppTheme.navySolid, in: RoundedRectangle(cornerRadius: 14))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ZweiCheck Premium Familie")
@@ -233,7 +233,7 @@ struct AccountView: View {
                     if highlighted {
                         Text("Günstiger als 12 einzelne Monatszahlungen")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(AppTheme.teal)
+                            .foregroundStyle(AppTheme.tealBright)
                     } else {
                         Text("Flexibel monatlich kündbar")
                             .font(.footnote)
@@ -243,15 +243,15 @@ struct AccountView: View {
                 Spacer()
                 Image(systemName: "chevron.right.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(highlighted ? AppTheme.teal : AppTheme.navy)
+                    .foregroundStyle(highlighted ? AppTheme.tealBright : AppTheme.navy)
             }
             .foregroundStyle(AppTheme.navy)
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(highlighted ? AppTheme.teal.opacity(0.08) : AppTheme.card, in: RoundedRectangle(cornerRadius: 17))
+            .background(highlighted ? AppTheme.teal.opacity(0.14) : AppTheme.card, in: RoundedRectangle(cornerRadius: 17))
             .overlay {
                 RoundedRectangle(cornerRadius: 17)
-                    .stroke(highlighted ? AppTheme.teal : AppTheme.navy.opacity(0.16), lineWidth: highlighted ? 2.5 : 1)
+                    .stroke(highlighted ? AppTheme.tealBright : AppTheme.separator.opacity(0.9), lineWidth: highlighted ? 2.5 : 1)
             }
         }
         .buttonStyle(.plain)
