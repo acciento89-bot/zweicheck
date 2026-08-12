@@ -112,6 +112,7 @@ struct OnboardingView: View {
                     subtitle: "Für den einfachen zweiten Blick",
                     accent: AppTheme.navy,
                     highlighted: false,
+                    badge: nil,
                     features: [
                         "Prüfanfragen senden und beantworten",
                         "1 Bild pro Prüfung",
@@ -122,19 +123,25 @@ struct OnboardingView: View {
 
                 planCard(
                     title: "Premium Familie",
-                    price: "39,99 € / Jahr",
-                    subtitle: "Mehr Schutz, wenn niemand sofort antwortet",
-                    accent: AppTheme.teal,
-                    highlighted: true,
-                    features: [
-                        "Bis zu 3 Bilder pro Prüfung",
-                        "Automatische Erinnerung nach 5–120 Minuten",
-                        "Automatisch eine zweite Vertrauensperson fragen",
-                        "Für Apple Familienfreigabe vorbereitet"
-                    ]
+                    price: "4,99 € / Monat",
+                    subtitle: "Flexibel monatlich",
+                    accent: AppTheme.navy,
+                    highlighted: false,
+                    badge: "MONATLICH",
+                    features: premiumFeatures
                 )
 
-                Text("Premium kannst du jederzeit später im Bereich „Konto“ aktivieren. Der tatsächliche Kauf läuft sicher über den App Store.")
+                planCard(
+                    title: "Premium Familie",
+                    price: "39,99 € / Jahr",
+                    subtitle: "Günstiger als 12 einzelne Monatszahlungen",
+                    accent: AppTheme.teal,
+                    highlighted: true,
+                    badge: "BESTE WAHL",
+                    features: premiumFeatures
+                )
+
+                Text("Premium kannst du jederzeit später im Bereich „Konto“ aktivieren. Der Kauf und die Verwaltung des Abos laufen sicher über den App Store.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
@@ -148,12 +155,22 @@ struct OnboardingView: View {
         }
     }
 
+    private var premiumFeatures: [String] {
+        [
+            "Bis zu 3 Bilder pro Prüfung",
+            "Automatische Erinnerung nach 5–120 Minuten",
+            "Automatisch eine zweite Vertrauensperson fragen",
+            "Apple Familienfreigabe"
+        ]
+    }
+
     private func planCard(
         title: String,
         price: String,
         subtitle: String,
         accent: Color,
         highlighted: Bool,
+        badge: String?,
         features: [String]
     ) -> some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -163,8 +180,8 @@ struct OnboardingView: View {
                     Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if highlighted {
-                    Text("FAMILIE")
+                if let badge {
+                    Text(badge)
                         .font(.caption.bold())
                         .foregroundStyle(.white)
                         .padding(.horizontal, 10)
