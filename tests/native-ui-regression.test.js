@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const root = path.join(__dirname, '..');
 const theme = fs.readFileSync(path.join(root, 'ios', 'ZweiCheck', 'AppTheme.swift'), 'utf8');
 const flow = fs.readFileSync(path.join(root, 'ios', 'ZweiCheck', 'NewCheckFlow.swift'), 'utf8');
+const checks = fs.readFileSync(path.join(root, 'ios', 'ZweiCheck', 'ChecksView.swift'), 'utf8');
+const viewer = fs.readFileSync(path.join(root, 'ios', 'ZweiCheck', 'ZoomableImageViewer.swift'), 'utf8');
 const project = fs.readFileSync(path.join(root, 'ios', 'project.yml'), 'utf8');
 
 test('native text entry has a clearly visible bordered surface', () => {
@@ -23,7 +25,19 @@ test('native optional amount and advanced selectors use the same visible input l
   assert.match(flow, /Nach 120 Minuten/);
 });
 
-test('native release build number is 4 for app and share extension', () => {
-  const matches = project.match(/CURRENT_PROJECT_VERSION: 4/g) || [];
+test('native check images can be opened full screen and zoomed', () => {
+  assert.match(flow, /fullScreenCover\(item: \$imagePreview\)/);
+  assert.match(checks, /fullScreenCover\(item: \$preview\)/);
+  assert.match(flow, /Bild antippen zum Vergrößern/);
+  assert.match(checks, /Bild antippen zum Vergrößern/);
+  assert.match(viewer, /struct ZoomableImageViewer/);
+  assert.match(viewer, /MagnifyGesture\(\)/);
+  assert.match(viewer, /DragGesture\(\)/);
+  assert.match(viewer, /onTapGesture\(count: 2\)/);
+  assert.match(viewer, /scale = min\(max\(baseScale \* value\.magnification, 1\), 6\)/);
+});
+
+test('native release build number is 5 for app and share extension', () => {
+  const matches = project.match(/CURRENT_PROJECT_VERSION: 5/g) || [];
   assert.equal(matches.length, 2);
 });
