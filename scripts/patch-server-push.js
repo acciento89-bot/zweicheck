@@ -14,6 +14,7 @@ const pushImport = "const { registerPushRoutes, startPushWorker } = require('./p
 const activityImport = "const { registerActivityRoutes } = require('./activity');";
 const trustImport = "const { registerTrustRoutingRoutes } = require('./trust-routing');";
 const trustSchemaImport = "const { ensureTrustRoutingSchema } = require('./trust-routing-schema');";
+const escalationImport = "const { registerEscalationRoutes, ensureEscalationSchema, createCheckEscalation, startEscalationWorker } = require('./escalation');";
 
 if (!source.includes("require('./push')")) {
   source = replaceRequired(source, importNeedle, `${importNeedle}\n${pushImport}`, 'Push import');
@@ -25,6 +26,12 @@ if (!source.includes("require('./activity')")) {
 if (!source.includes("require('./trust-routing')")) {
   const anchor = source.includes(activityImport) ? activityImport : (source.includes(pushImport) ? pushImport : importNeedle);
   source = replaceRequired(source, anchor, `${anchor}\n${trustImport}\n${trustSchemaImport}`, 'Trust routing import');
+}
+if (!source.includes("require('./escalation')")) {
+  const anchor = source.includes(trustSchemaImport)
+    ? trustSchemaImport
+    : (source.includes(trustImport) ? trustImport : (source.includes(activityImport) ? activityImport : pushImport));
+  source = replaceRequired(source, anchor, `${anchor}\n${escalationImport}`, 'Escalation import');
 }
 
 const routeNeedle = "  app.post('/api/auth/register', asyncHandler(async (req, res) => {";
@@ -50,6 +57,14 @@ if (!source.includes('registerTrustRoutingRoutes(app')) {
     routeNeedle,
     `  registerTrustRoutingRoutes(app, { requireAuth, requireVerified, asyncHandler, httpError });\n\n${routeNeedle}`,
     'Trust routing routes'
+  );
+}
+if (!source.includes('registerEscalationRoutes(app')) {
+  source = replaceRequired(
+    source,
+    routeNeedle,
+    `  registerEscalationRoutes(app, { requireAuth, requireVerified, asyncHandler, httpError });\n\n${routeNeedle}`,
+    'Escalation routes'
   );
 }
 
@@ -89,6 +104,18 @@ if (!source.includes('(id, requester_id, reviewer_id, fallback_reviewer_id, cate
   source = replaceRequired(source, insertBlock, insertBlockWithFallback, 'Fallback reviewer insert');
 }
 
+const returnCheckNeedle = '        return inserted.rows[0];';
+const returnCheckWithEscalation = `        await createCheckEscalation(client, {
+          checkId,
+          reminderMinutes: req.body.escalationReminderMinutes,
+          autoReroute: req.body.escalationAutoReroute,
+          fallbackReviewerId: fallbackReviewerId || null
+        });
+        return inserted.rows[0];`;
+if (!source.includes('reminderMinutes: req.body.escalationReminderMinutes')) {
+  source = replaceRequired(source, returnCheckNeedle, returnCheckWithEscalation, 'Escalation check creation');
+}
+
 const staticNeedle = "  app.get('/app.js', sendPublic('app.js'));";
 const pushClientRoute = "  app.get('/push-client.js', sendPublic('push-client.js'));";
 if (!source.includes("app.get('/push-client.js'")) {
@@ -117,6 +144,15 @@ if (!source.includes("app.get('/trust-routing.js'")) {
     'Trust routing static routes'
   );
 }
+if (!source.includes("app.get('/escalation-client.js'")) {
+  const anchor = "  app.get('/trust-routing.css', sendPublic('trust-routing.css'));";
+  source = replaceRequired(
+    source,
+    anchor,
+    `${anchor}\n  app.get('/escalation-client.js', sendPublic('escalation-client.js'));\n  app.get('/escalation.css', sendPublic('escalation.css'));`,
+    'Escalation static routes'
+  );
+}
 
 const migrationNeedle = '  await db.migrate();';
 if (!source.includes('  await ensureTrustRoutingSchema();')) {
@@ -127,11 +163,23 @@ if (!source.includes('  await ensureTrustRoutingSchema();')) {
     'Trust routing schema startup'
   );
 }
-if (!source.includes('  startPushWorker();')) {
-  const workerAnchor = source.includes('  await ensureTrustRoutingSchema();')
+if (!source.includes('  await ensureEscalationSchema();')) {
+  const anchor = source.includes('  await ensureTrustRoutingSchema();')
     ? '  await ensureTrustRoutingSchema();'
     : migrationNeedle;
+  source = replaceRequired(source, anchor, `${anchor}\n  await ensureEscalationSchema();`, 'Escalation schema startup');
+}
+if (!source.includes('  startPushWorker();')) {
+  const workerAnchor = source.includes('  await ensureEscalationSchema();')
+    ? '  await ensureEscalationSchema();'
+    : (source.includes('  await ensureTrustRoutingSchema();') ? '  await ensureTrustRoutingSchema();' : migrationNeedle);
   source = replaceRequired(source, workerAnchor, `${workerAnchor}\n  startPushWorker();`, 'Push worker startup');
+}
+if (!source.includes('  startEscalationWorker();')) {
+  const workerAnchor = source.includes('  startPushWorker();')
+    ? '  startPushWorker();'
+    : (source.includes('  await ensureEscalationSchema();') ? '  await ensureEscalationSchema();' : migrationNeedle);
+  source = replaceRequired(source, workerAnchor, `${workerAnchor}\n  startEscalationWorker();`, 'Escalation worker startup');
 }
 
 fs.writeFileSync(indexFile, source);
@@ -141,7 +189,7 @@ let emailSource = fs.readFileSync(emailFile, 'utf8');
 emailSource = replaceRequired(
   emailSource,
   "event_type TEXT NOT NULL CHECK (event_type IN ('check_created', 'check_answered'))",
-  "event_type TEXT NOT NULL CHECK (event_type IN ('check_created', 'check_answered', 'check_rerouted'))",
+  "event_type TEXT NOT NULL CHECK (event_type IN ('check_created', 'check_answered', 'check_rerouted', 'check_reminder'))",
   'Email notification event constraint'
 );
 
@@ -151,9 +199,9 @@ const emailConstraintPatch = `  await db.query(\`
       DROP CONSTRAINT IF EXISTS email_notifications_event_type_check;
     ALTER TABLE email_notifications
       ADD CONSTRAINT email_notifications_event_type_check
-      CHECK (event_type IN ('check_created', 'check_answered', 'check_rerouted'));
+      CHECK (event_type IN ('check_created', 'check_answered', 'check_rerouted', 'check_reminder'));
   \`);\n\n${emailConstraintAnchor}`;
-if (!emailSource.includes("CHECK (event_type IN ('check_created', 'check_answered', 'check_rerouted'));") || !emailSource.includes('DROP CONSTRAINT IF EXISTS email_notifications_event_type_check')) {
+if (!emailSource.includes("CHECK (event_type IN ('check_created', 'check_answered', 'check_rerouted', 'check_reminder'));") || !emailSource.includes('DROP CONSTRAINT IF EXISTS email_notifications_event_type_check')) {
   emailSource = replaceRequired(emailSource, emailConstraintAnchor, emailConstraintPatch, 'Email constraint migration');
 }
 
@@ -161,7 +209,7 @@ const emailCreatedEnqueue = `    INSERT INTO email_notifications (check_id, even
     SELECT id, 'check_created'
     FROM check_requests
     ON CONFLICT (check_id, event_type) DO NOTHING;`;
-const emailCreatedAndRerouted = `    INSERT INTO email_notifications (check_id, event_type)
+const emailCreatedAndRouting = `    INSERT INTO email_notifications (check_id, event_type)
     SELECT id, 'check_created'
     FROM check_requests
     WHERE reassigned_at IS NULL
@@ -171,13 +219,24 @@ const emailCreatedAndRerouted = `    INSERT INTO email_notifications (check_id, 
     SELECT id, 'check_rerouted'
     FROM check_requests
     WHERE reassigned_at IS NOT NULL
+    ON CONFLICT (check_id, event_type) DO NOTHING;
+
+    INSERT INTO email_notifications (check_id, event_type)
+    SELECT e.check_id, 'check_reminder'
+    FROM check_escalations e
+    JOIN check_requests c ON c.id = e.check_id
+    WHERE e.reminded_at IS NOT NULL
+      AND e.rerouted_at IS NULL
+      AND e.cancelled_at IS NULL
+      AND c.status = 'open'
+      AND c.reassigned_at IS NULL
     ON CONFLICT (check_id, event_type) DO NOTHING;`;
-if (!emailSource.includes("SELECT id, 'check_rerouted'")) {
-  emailSource = replaceRequired(emailSource, emailCreatedEnqueue, emailCreatedAndRerouted, 'Email reroute enqueue');
+if (!emailSource.includes("SELECT e.check_id, 'check_reminder'")) {
+  emailSource = replaceRequired(emailSource, emailCreatedEnqueue, emailCreatedAndRouting, 'Email routing and reminder enqueue');
 }
 
 const emailAnsweredNeedle = `  if (eventType === 'check_answered') {`;
-const emailReroutedCase = `  if (eventType === 'check_rerouted') {
+const emailRoutingCases = `  if (eventType === 'check_rerouted') {
     const content = newCheckEmail({
       recipientName: row.reviewer_name,
       requesterName: row.requester_name,
@@ -186,9 +245,20 @@ const emailReroutedCase = `  if (eventType === 'check_rerouted') {
       actionUrl
     });
     return { to: row.reviewer_email, ...content, subject: \`Weitergeleitete Prüfanfrage von \${row.requester_name}\` };
+  }
+
+  if (eventType === 'check_reminder') {
+    const content = newCheckEmail({
+      recipientName: row.reviewer_name,
+      requesterName: row.requester_name,
+      category: CATEGORY_LABELS[row.category] || 'Prüfanfrage',
+      urgency: URGENCY_LABELS[row.urgency] || 'Nicht angegeben',
+      actionUrl
+    });
+    return { to: row.reviewer_email, ...content, subject: \`Erinnerung: \${row.requester_name} wartet auf deine Einschätzung\` };
   }\n\n${emailAnsweredNeedle}`;
-if (!emailSource.includes("eventType === 'check_rerouted'")) {
-  emailSource = replaceRequired(emailSource, emailAnsweredNeedle, emailReroutedCase, 'Email reroute message');
+if (!emailSource.includes("eventType === 'check_reminder'")) {
+  emailSource = replaceRequired(emailSource, emailAnsweredNeedle, emailRoutingCases, 'Email routing and reminder messages');
 }
 fs.writeFileSync(emailFile, emailSource);
 
@@ -206,7 +276,7 @@ if (!pushSource.includes('      AND c.reassigned_at IS NULL')) {
 
 const pushAnsweredInsert = `    INSERT INTO push_notifications (check_id, event_type)
     SELECT c.id, 'check_answered'`;
-const pushReroutedInsert = `    INSERT INTO push_notifications (check_id, event_type)
+const pushRoutingInsert = `    INSERT INTO push_notifications (check_id, event_type)
     SELECT c.id, 'check_rerouted'
     FROM check_requests c
     CROSS JOIN push_worker_state state
@@ -215,13 +285,27 @@ const pushReroutedInsert = `    INSERT INTO push_notifications (check_id, event_
       AND c.reassigned_at >= state.activated_at
     ON CONFLICT (check_id, event_type) DO NOTHING;
 
+    INSERT INTO push_notifications (check_id, event_type)
+    SELECT e.check_id, 'check_reminder'
+    FROM check_escalations e
+    JOIN check_requests c ON c.id = e.check_id
+    CROSS JOIN push_worker_state state
+    WHERE state.id = TRUE
+      AND e.reminded_at IS NOT NULL
+      AND e.reminded_at >= state.activated_at
+      AND e.rerouted_at IS NULL
+      AND e.cancelled_at IS NULL
+      AND c.status = 'open'
+      AND c.reassigned_at IS NULL
+    ON CONFLICT (check_id, event_type) DO NOTHING;
+
 ${pushAnsweredInsert}`;
-if (!pushSource.includes("SELECT c.id, 'check_rerouted'")) {
-  pushSource = replaceRequired(pushSource, pushAnsweredInsert, pushReroutedInsert, 'Push reroute enqueue');
+if (!pushSource.includes("SELECT e.check_id, 'check_reminder'")) {
+  pushSource = replaceRequired(pushSource, pushAnsweredInsert, pushRoutingInsert, 'Push routing and reminder enqueue');
 }
 
 const pushAnsweredNeedle = `  if (eventType === 'check_answered') {`;
-const pushReroutedCase = `  if (eventType === 'check_rerouted') {
+const pushRoutingCases = `  if (eventType === 'check_rerouted') {
     return {
       userId: row.reviewer_id,
       payload: {
@@ -233,8 +317,22 @@ const pushReroutedCase = `  if (eventType === 'check_rerouted') {
         checkId: row.id
       }
     };
+  }
+
+  if (eventType === 'check_reminder') {
+    return {
+      userId: row.reviewer_id,
+      payload: {
+        title: 'Erinnerung an eine Prüfanfrage',
+        body: \`\${row.requester_name} wartet noch auf deine Einschätzung.\`,
+        url,
+        tag: \`zc-reminder-\${row.id}\`,
+        eventType,
+        checkId: row.id
+      }
+    };
   }\n\n${pushAnsweredNeedle}`;
-if (!pushSource.includes("eventType === 'check_rerouted'")) {
-  pushSource = replaceRequired(pushSource, pushAnsweredNeedle, pushReroutedCase, 'Push reroute payload');
+if (!pushSource.includes("eventType === 'check_reminder'")) {
+  pushSource = replaceRequired(pushSource, pushAnsweredNeedle, pushRoutingCases, 'Push routing and reminder payloads');
 }
 fs.writeFileSync(pushFile, pushSource);
