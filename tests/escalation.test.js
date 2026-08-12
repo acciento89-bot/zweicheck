@@ -17,6 +17,7 @@ const css = fs.readFileSync(path.join(root, 'escalation.css'), 'utf8');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const patch = fs.readFileSync(path.join(root, 'scripts', 'patch-server-push.js'), 'utf8');
+const pollingPatch = fs.readFileSync(path.join(root, 'scripts', 'patch-polling.js'), 'utf8');
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
@@ -79,12 +80,20 @@ test('escalation client is additive and does not use a MutationObserver', () => 
   assert.match(css, /zc-escalation-card/);
 });
 
+test('production patch locks reminder controls while the user is interacting', () => {
+  assert.match(pollingPatch, /zcPollingLock/);
+  assert.match(pollingPatch, /:focus-within/);
+  assert.match(pollingPatch, /activeReminderControl/);
+  assert.match(pollingPatch, /old\.innerHTML === card\.innerHTML/);
+  assert.match(pollingPatch, /zweicheck:data-refreshed/);
+});
+
 test('phase 3.5 assets and server integration remain shipped', () => {
   assert.match(index, /meta name="zweicheck-build" content="[^"]+"/);
-  assert.match(index, /escalation-client\.js\?v=3/);
+  assert.match(index, /escalation-client\.js\?v=4/);
   assert.match(index, /escalation\.css\?v=2/);
   assert.match(serviceWorker, /const CACHE_NAME = 'zweicheck-phase3-v\d+'/);
-  assert.match(serviceWorker, /escalation-client\.js\?v=3/);
+  assert.match(serviceWorker, /escalation-client\.js\?v=4/);
   assert.match(patch, /registerEscalationRoutes/);
   assert.match(patch, /createCheckEscalation/);
   assert.match(patch, /startEscalationWorker/);
