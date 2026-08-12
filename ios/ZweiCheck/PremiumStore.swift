@@ -17,8 +17,17 @@ final class PremiumStore {
     var isLoading = false
     var message: String?
 
-    var monthlyPriceText: String { monthlyProduct?.displayPrice ?? Self.familyMonthlyTargetPrice }
-    var annualPriceText: String { yearlyProduct?.displayPrice ?? Self.familyYearlyTargetPrice }
+    // ZweiCheck ist zum Release nur für Deutschland freigeschaltet. TestFlight/Sandbox kann
+    // vorübergehend veraltete Fremdwährungs-Metadaten cachen, obwohl Apples Kaufdialog bereits
+    // den korrekten EUR-Preis verwendet. Solche Werte zeigen wir nicht in der Tarifkarte.
+    var monthlyPriceText: String {
+        euroDisplayPrice(for: monthlyProduct, fallback: Self.familyMonthlyTargetPrice)
+    }
+
+    var annualPriceText: String {
+        euroDisplayPrice(for: yearlyProduct, fallback: Self.familyYearlyTargetPrice)
+    }
+
     var activePlanLabel: String {
         switch activeProductID {
         case Self.familyMonthlyProductID: "Premium Familie · Monatlich"
@@ -76,6 +85,12 @@ final class PremiumStore {
 
         activeProductID = activeID
         isPremiumFamily = activeID != nil
+    }
+
+    private func euroDisplayPrice(for product: Product?, fallback: String) -> String {
+        guard let displayPrice = product?.displayPrice else { return fallback }
+        let normalized = displayPrice.uppercased()
+        return normalized.contains("€") || normalized.contains("EUR") ? displayPrice : fallback
     }
 
     private func purchase(product: Product?, fallbackMessage: String) async {
