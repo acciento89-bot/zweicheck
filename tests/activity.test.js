@@ -72,7 +72,7 @@ test('activity center remains shipped through the proven push integration', () =
   assert.match(index, /activity-center\.css\?v=2/);
   assert.match(index, /activity-center\.js\?v=2/);
   assert.match(serviceWorker, /activity-center\.js\?v=2/);
-  assert.match(serviceWorker, /zweicheck-phase3-v8/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'zweicheck-phase3-v\d+'/);
   assert.match(patch, /registerActivityRoutes/);
   assert.match(patch, /activity-center\.js/);
 });
