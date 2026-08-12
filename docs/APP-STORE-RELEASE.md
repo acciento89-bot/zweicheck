@@ -9,7 +9,8 @@ ZweiCheck soll als eigenständige iOS-App veröffentlicht werden. Die bestehende
 ## Technische Apple-Basis
 
 - Build für Einreichungen ab 28.04.2026: Xcode 26 oder neuer mit iOS-26-SDK oder neuer.
-- Geplanter Bundle Identifier: `com.kamilunavo.zweicheck`
+- Bundle Identifier: `de.kamilunavo.zweicheck`
+- Apple Developer Team: `TKG684N5GL`
 - Produktversion: `1.0.0`
 - Mindestziel für die erste native Version: iOS 17+; Build selbst mit aktuellem iOS-26-SDK.
 - Keine Werbung, kein Tracking, keine In-App-Käufe in Version 1.0.
@@ -35,9 +36,9 @@ ZweiCheck ist bewusst einfach aufgebaut. Große Schaltflächen, eine geführte P
 Funktionen:
 - private Vertrauenspersonen verbinden
 - verdächtige Nachrichten, Zahlungen, Links und Datenfreigaben gemeinsam prüfen
-- optional Bilder und Screenshots mitschicken
+- optional Bilder und Screenshots mit dem systemeigenen iOS-Fotopicker mitschicken
 - klare menschliche Rückmeldung statt automatischer KI-Entscheidung
-- Aktivitäten und optionale Push-Benachrichtigungen
+- native Aktivitäten mit Ungelesen-Zähler
 - Erinnerungs- und Ausweichperson-Funktion bei offenen Anfragen
 - eigene Daten herunterladen
 - Konto direkt in ZweiCheck löschen
@@ -64,6 +65,7 @@ Nach Deployment:
 - Privacy Choices: `https://zweicheck.kamilunavo.com/privacy-choices`
 - Support URL: `https://zweicheck.kamilunavo.com/support`
 - Marketing URL: `https://zweicheck.kamilunavo.com/`
+- Universal-Link Association: `https://zweicheck.kamilunavo.com/.well-known/apple-app-site-association`
 
 ## App Privacy – Arbeitsentwurf für App Store Connect
 
@@ -117,24 +119,32 @@ Für die erste Einreichung mindestens folgende Motive vorbereiten:
 
 1. Startseite: „Ich bin unsicher – prüfen lassen“
 2. Geführte Prüfanfrage, Schritt „Worum geht es?“
-3. Prüfanfrage „Alles richtig?“
-4. klare Rückmeldung „Erst persönlich klären“ oder „Nicht handeln“
-5. Vertrauenspersonen / Verfügbarkeitsstatus
-6. Aktivitäten / Antwort erhalten
+3. Prüfanfrage mit optional ausgewählten Screenshots
+4. Prüfanfrage „Alles richtig?“
+5. klare Rückmeldung „Erst persönlich klären“ oder „Nicht handeln“
+6. Vertrauenspersonen / Verfügbarkeitsstatus
+7. Aktivitäten / Antwort erhalten
 
 Keine echten Namen, E-Mail-Adressen, Telefonnummern, Bankdaten oder realen Betrugsnachrichten in Store-Screenshots verwenden.
 
 ## Native iOS-Funktionen für Guideline 4.2
 
-Die App-Store-Version soll über die reine Website hinausgehen. Geplante native 1.0-Funktionen:
+Bereits umgesetzt:
+
+- echte SwiftUI-Oberfläche statt WebView
+- systemeigener PhotosPicker ohne pauschalen Vollzugriff auf die Fotobibliothek
+- Bildaufbereitung und Upload an die bestehende geschützte ZweiCheck-API
+- Universal-Link-Entitlement für `zweicheck.kamilunavo.com`
+- AASA-Datei für Einladungscodes und direkte Prüfanfragen
+- sichere Sitzungsspeicherung im iOS Keychain
+- native Aktivitäten und Deep-Link-Navigation
+- systemgerechte Accessibility / Dynamic Type durch native SwiftUI-Komponenten
+
+Vor dem signierten Release noch geplant:
 
 - native Push Notifications über APNs
-- systemeigener Foto-/Datei-Picker statt Vollzugriff auf die Fotobibliothek
 - Share Sheet / Share Extension: verdächtigen Text, Link oder Screenshot direkt an ZweiCheck übergeben
-- Universal Links für Einladungen und Prüfanfragen
 - native Haptik bei wichtigen Bestätigungen
-- sichere Sitzungsspeicherung im iOS Keychain
-- systemgerechte Accessibility / Dynamic Type
 
 Das Kernprodukt und Backend bleiben identisch; die native Oberfläche nutzt dieselben abgesicherten API-Endpunkte.
 
@@ -142,10 +152,11 @@ Das Kernprodukt und Backend bleiben identisch; die native Oberfläche nutzt dies
 
 Diese Punkte können nicht im Server-Repository allein erledigt werden:
 
-- App-ID im Apple Developer Account registrieren
-- Xcode-26-Projekt bauen und signieren
+- App-ID `de.kamilunavo.zweicheck` im Apple Developer Account registrieren
+- Associated Domains Capability für die App-ID aktivieren
+- Xcode-26-Projekt signieren
 - APNs Capability / Push-Key bzw. Zertifikat konfigurieren
-- App-Icon als Xcode Asset Catalog erzeugen
+- App-Icon als Xcode Asset Catalog finalisieren
 - Screenshots im Simulator bzw. auf Geräten aufnehmen
 - Demo-Zugangsdaten in App Store Connect eintragen
 - App Privacy, Altersfreigabe, DSA-/Trader-Status und Verfügbarkeit in App Store Connect ausfüllen

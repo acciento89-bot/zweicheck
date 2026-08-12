@@ -57,12 +57,18 @@ function registerActivityRoutes(app, dependencies) {
     res.type('html');
     res.sendFile(path.join(publicRoot, fileName));
   };
+  const sendAppleAssociation = (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.type('application/json');
+    res.sendFile(path.join(publicRoot, 'apple-app-site-association'));
+  };
 
   app.get('/account-client.js', sendAccountAsset('account-client.js', 'application/javascript'));
   app.get('/account.css', sendAccountAsset('account.css', 'text/css'));
   app.get(['/privacy', '/privacy.html'], sendPublicPage('privacy.html'));
   app.get(['/privacy-choices', '/privacy-choices.html'], sendPublicPage('privacy-choices.html'));
   app.get(['/support', '/support.html'], sendPublicPage('support.html'));
+  app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association'], sendAppleAssociation);
   registerAccountRoutes(app, dependencies);
 
   app.get('/api/activities', requireAuth, asyncHandler(async (req, res) => {
