@@ -55,6 +55,8 @@ test('Premium Family is clearly differentiated from the free plan and supports b
   assert.match(premium, /familyYearlyProductID = "de\.kamilunavo\.zweicheck\.premium\.family\.yearly"/);
   assert.match(premium, /familyMonthlyTargetPrice = "4,99 €"/);
   assert.match(premium, /familyYearlyTargetPrice = "39,99 €"/);
+  assert.match(premium, /euroDisplayPrice\(for: monthlyProduct/);
+  assert.match(premium, /normalized\.contains\("€"\) \|\| normalized\.contains\("EUR"\)/);
   assert.match(onboarding, /4,99 € \/ Monat/);
   assert.match(onboarding, /39,99 € \/ Jahr/);
   assert.match(onboarding, /BESTE WAHL/);
@@ -84,8 +86,8 @@ test('review actions use distinct ZweiCheck web colors', () => {
   assert.match(checks, /case \.callMe: \.navy/);
 });
 
-test('native release build number is 9 for app and share extension', () => {
-  const matches = project.match(/CURRENT_PROJECT_VERSION: 9/g) || [];
+test('native release build number is 10 for app and share extension', () => {
+  const matches = project.match(/CURRENT_PROJECT_VERSION: 10/g) || [];
   assert.equal(matches.length, 2);
   assert.match(project, /CFBundleShortVersionString: \$\(MARKETING_VERSION\)/);
   assert.match(project, /CFBundleVersion: \$\(CURRENT_PROJECT_VERSION\)/);
