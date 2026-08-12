@@ -8,9 +8,14 @@ struct NewCheckFlow: View {
     @Environment(\.dismiss) private var dismiss
     @State private var step = 1
     @State private var reviewerID = ""
+    @State private var fallbackReviewerID = ""
     @State private var category: CheckCategory
     @State private var description: String
     @State private var amount = ""
+    @State private var urgency = "none"
+    @State private var reminderMinutes = 0
+    @State private var autoReroute = false
+    @State private var showAdvanced = false
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var images: [UploadImage]
     @State private var imageError: String?
@@ -26,6 +31,7 @@ struct NewCheckFlow: View {
     }
 
     private var connections: [TrustConnection] { model.routing?.connections ?? [] }
+    private var fallbackCandidates: [TrustConnection] { connections.filter { $0.person.id != reviewerID } }
 
     var body: some View {
         NavigationStack {
@@ -44,11 +50,9 @@ struct NewCheckFlow: View {
                                 .buttonStyle(SeniorPrimaryButtonStyle())
                                 .disabled(!canContinue)
                         } else {
-                            Button("Jetzt prüfen lassen") {
-                                submit()
-                            }
-                            .buttonStyle(SeniorPrimaryButtonStyle())
-                            .disabled(model.isBusy || preparingImages)
+                            Button("Jetzt sicher prüfen lassen") { submit() }
+                                .buttonStyle(SeniorPrimaryButtonStyle())
+                                .disabled(model.isBusy || preparingImages)
                         }
                     }
                 }
@@ -63,6 +67,15 @@ struct NewCheckFlow: View {
             .onAppear {
                 if reviewerID.isEmpty { reviewerID = connections.first?.person.id ?? "" }
             }
+            .onChange(of: reviewerID) { _, _ in
+                if fallbackReviewerID == reviewerID { fallbackReviewerID = "" }
+            }
+            .onChange(of: fallbackReviewerID) { _, value in
+                if value.isEmpty { autoReroute = false }
+            }
+            .onChange(of: reminderMinutes) { _, value in
+                if value == 0 { autoReroute = false }
+            }
             .onChange(of: pickerItems) { _, items in
                 Task { await loadImages(items) }
             }
@@ -74,12 +87,13 @@ struct NewCheckFlow: View {
         case 1:
             VStack(alignment: .leading, spacing: 14) {
                 Text("Wer soll dir helfen?").font(.title.bold())
+                Text("Wähle eine Person, die du kennst und der du vertraust.").foregroundStyle(.secondary)
                 ForEach(connections) { connection in
                     Button {
                         reviewerID = connection.person.id
                     } label: {
                         HStack {
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(connection.person.name).font(.title3.bold())
                                 Text(connection.presence.label).font(.subheadline).foregroundStyle(.secondary)
                             }
@@ -169,6 +183,49 @@ struct NewCheckFlow: View {
                 summary("Beschreibung", description)
                 if !amount.isEmpty { summary("Betrag", amount + " €") }
                 if !images.isEmpty { summary("Bilder", "\(images.count) ausgewählt") }
+
+                Picker("Wie dringend ist es?", selection: $urgency) {
+                    Text("Nicht dringend").tag("none")
+                    Text("Etwas dringend").tag("low")
+                    Text("Dringend").tag("high")
+                    Text("Sehr dringend – ich soll sofort handeln").tag("very_high")
+                }
+                .pickerStyle(.menu)
+                .padding(14)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+
+                DisclosureGroup("Mehr Möglichkeiten", isExpanded: $showAdvanced) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Picker("Wer soll sonst helfen?", selection: $fallbackReviewerID) {
+                            Text("Keine zweite Person").tag("")
+                            ForEach(fallbackCandidates) { connection in
+                                Text("\(connection.person.name) · \(connection.presence.label)").tag(connection.person.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+
+                        Picker("Soll ZweiCheck erinnern?", selection: $reminderMinutes) {
+                            Text("Nein, nicht erinnern").tag(0)
+                            Text("Nach 5 Minuten").tag(5)
+                            Text("Nach 15 Minuten").tag(15)
+                            Text("Nach 30 Minuten").tag(30)
+                            Text("Nach 1 Stunde").tag(60)
+                            Text("Nach 2 Stunden").tag(120)
+                        }
+                        .pickerStyle(.menu)
+
+                        Toggle("Danach automatisch die zweite Person fragen", isOn: $autoReroute)
+                            .disabled(reminderMinutes == 0 || fallbackReviewerID.isEmpty)
+
+                        Text("Sobald jemand antwortet oder du die Prüfung beendest, hört die Erinnerung automatisch auf.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 12)
+                }
+                .padding(16)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14))
+
                 Text("Sende die Anfrage erst ab, wenn alles stimmt.").foregroundStyle(.secondary)
             }
         }
@@ -198,9 +255,13 @@ struct NewCheckFlow: View {
         Task {
             let success = await model.createCheck(
                 reviewerID: reviewerID,
+                fallbackReviewerID: fallbackReviewerID.isEmpty ? nil : fallbackReviewerID,
                 category: category,
                 description: description,
                 amount: amount,
+                urgency: urgency,
+                reminderMinutes: reminderMinutes == 0 ? nil : reminderMinutes,
+                autoReroute: autoReroute,
                 images: images
             )
             if success {
