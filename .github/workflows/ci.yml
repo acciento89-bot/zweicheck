@@ -38,6 +38,7 @@ jobs:
         run: |
           npm run check
           node --check activity-center.js
+          node --check trust-routing.js
       - name: Unit-Tests
         run: npm test
       - name: Datenbankschema anwenden
@@ -48,6 +49,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
         run: node scripts/activity-db-check.js
+      - name: Vertrauensrouting prüfen
+        env:
+          DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
+        run: node scripts/trust-routing-db-check.js
       - name: Server-Smoke-Test
         env:
           DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
@@ -78,10 +83,15 @@ jobs:
           curl -fsS http://127.0.0.1:3000/deep-link.js -o /tmp/deep-link.js
           curl -fsS http://127.0.0.1:3000/activity-center.js -o /tmp/activity-center.js
           curl -fsS http://127.0.0.1:3000/activity-center.css -o /tmp/activity-center.css
+          curl -fsS http://127.0.0.1:3000/trust-routing.js -o /tmp/trust-routing.js
+          curl -fsS http://127.0.0.1:3000/trust-routing.css -o /tmp/trust-routing.css
           grep -q 'Notification.requestPermission' /tmp/push-client.js
           grep -q 'requestedCheckId' /tmp/deep-link.js
           grep -q 'zc-activity-overlay' /tmp/activity-center.js
           grep -q 'zc-activity-card' /tmp/activity-center.css
+          grep -q 'fallbackReviewerId' /tmp/trust-routing.js
+          grep -q 'zc-routing-card' /tmp/trust-routing.css
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/activities)" = "401"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/trust-routing)" = "401"
       - name: Docker-Image bauen
         run: docker build -t zweicheck:test .
