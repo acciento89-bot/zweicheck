@@ -1,0 +1,87 @@
+name: ZweiCheck Signing Diagnose
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/signing-diagnose.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: macos-26
+    env:
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_PRIVATE_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: API Key bereitstellen
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$ASC_PRIVATE_KEY_B64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+      - name: Python-Abhängigkeiten
+        run: python3 -m pip install --quiet pyjwt cryptography requests
+      - name: Apple Provisioning API prüfen
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, time, jwt, requests
+          key = open(os.environ['RUNNER_TEMP'] + '/AuthKey.p8', 'r', encoding='utf-8').read()
+          token = jwt.encode(
+              {'iss': os.environ['ASC_ISSUER_ID'], 'iat': int(time.time()), 'exp': int(time.time()) + 600, 'aud': 'appstoreconnect-v1'},
+              key,
+              algorithm='ES256',
+              headers={'kid': os.environ['ASC_KEY_ID'], 'typ': 'JWT'}
+          )
+          headers = {'Authorization': f'Bearer {token}'}
+          base = 'https://api.appstoreconnect.apple.com/v1'
+          for identifier in ['de.kamilunavo.zweicheck', 'de.kamilunavo.zweicheck.share']:
+              r = requests.get(base + '/bundleIds', headers=headers, params={
+                  'filter[identifier]': identifier,
+                  'include': 'bundleIdCapabilities,profiles',
+                  'limit': '10'
+              }, timeout=30)
+              print(f'BUNDLE {identifier}: HTTP {r.status_code}')
+              if r.status_code != 200:
+                  print(r.text[:1500])
+                  continue
+              payload = r.json()
+              data = payload.get('data', [])
+              print(f'  found={len(data)}')
+              if data:
+                  print(f"  id={data[0].get('id')} platform={data[0].get('attributes',{}).get('platform')}")
+              caps=[]; profiles=[]
+              for item in payload.get('included', []):
+                  if item.get('type') == 'bundleIdCapabilities':
+                      caps.append(item.get('attributes',{}).get('capabilityType'))
+                  elif item.get('type') == 'profiles':
+                      a=item.get('attributes',{})
+                      profiles.append((a.get('name'), a.get('profileType'), a.get('profileState')))
+              print('  capabilities=' + ','.join(sorted(set(filter(None,caps)))))
+              print('  profiles=' + repr(profiles))
+          r = requests.get(base + '/devices', headers=headers, params={'limit':'10'}, timeout=30)
+          print(f'DEVICES: HTTP {r.status_code}')
+          if r.status_code == 200:
+              print('  count=' + str(len(r.json().get('data', []))))
+          else:
+              print(r.text[:1500])
+          r = requests.get(base + '/certificates', headers=headers, params={'limit':'20'}, timeout=30)
+          print(f'CERTIFICATES: HTTP {r.status_code}')
+          if r.status_code == 200:
+              certs=[]
+              for c in r.json().get('data', []):
+                  a=c.get('attributes',{})
+                  certs.append((a.get('certificateType'), a.get('displayName'), a.get('expirationDate')))
+              print('  ' + repr(certs))
+          else:
+              print(r.text[:1500])
+          PY
+      - name: Key entfernen
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
