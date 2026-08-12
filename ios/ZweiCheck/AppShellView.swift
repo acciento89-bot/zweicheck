@@ -19,6 +19,11 @@ struct AppShellView: View {
                 .tabItem { Label("Konto", systemImage: "person.crop.circle.fill") }
                 .tag(3)
         }
+        .task {
+            if let url = NativePushManager.consumePendingNotificationURL() {
+                model.handleIncomingURL(url)
+            }
+        }
         .onChange(of: model.destination) { _, destination in
             guard let destination else { return }
             switch destination {
