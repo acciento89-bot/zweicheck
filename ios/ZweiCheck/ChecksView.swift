@@ -227,8 +227,8 @@ struct CheckDetailView: View {
                     Text("5 Minuten").tag(5)
                     Text("15 Minuten").tag(15)
                     Text("30 Minuten").tag(30)
-                    Text("1 Stunde").tag(60)
-                    Text("2 Stunden").tag(120)
+                    Text("60 Minuten").tag(60)
+                    Text("120 Minuten").tag(120)
                 }
                 .pickerStyle(.menu)
                 Toggle("Danach zweite Person fragen", isOn: $autoReroute)
