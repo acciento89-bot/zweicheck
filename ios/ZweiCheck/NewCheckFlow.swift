@@ -209,8 +209,8 @@ struct NewCheckFlow: View {
                             Text("Nach 5 Minuten").tag(5)
                             Text("Nach 15 Minuten").tag(15)
                             Text("Nach 30 Minuten").tag(30)
-                            Text("Nach 1 Stunde").tag(60)
-                            Text("Nach 2 Stunden").tag(120)
+                            Text("Nach 60 Minuten").tag(60)
+                            Text("Nach 120 Minuten").tag(120)
                         }
                         .pickerStyle(.menu)
 
