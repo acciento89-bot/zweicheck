@@ -93,5 +93,10 @@ jobs:
           grep -q 'zc-routing-card' /tmp/trust-routing.css
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/activities)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/trust-routing)" = "401"
-      - name: Docker-Image bauen
-        run: docker build -t zweicheck:test .
+      - name: Docker-Image bauen und Trust-Hotfix prüfen
+        run: |
+          docker build -t zweicheck:test .
+          docker run --rm --entrypoint sh zweicheck:test -c '
+            grep -Fq "observer.observe(appRoot, { childList: true });" /app/trust-routing.js &&
+            ! grep -Fq "observer.observe(document.documentElement, { childList: true, subtree: true });" /app/trust-routing.js
+          '
