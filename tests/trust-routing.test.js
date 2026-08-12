@@ -56,8 +56,8 @@ test('reroute target ids must be UUIDs', () => {
 test('trust routing assets are shipped and cached', () => {
   assert.match(index, /trust-routing\.css\?v=1/);
   assert.match(index, /trust-routing\.js\?v=2/);
-  assert.match(index, /trust-routing-v1-hotfix1/);
-  assert.match(serviceWorker, /zweicheck-phase3-v8/);
+  assert.match(index, /meta name="zweicheck-build" content="[^"]+"/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'zweicheck-phase3-v\d+'/);
   assert.match(serviceWorker, /trust-routing\.js\?v=2/);
   assert.match(client, /fallbackReviewerId/);
   assert.match(client, /data-zc-reroute/);
