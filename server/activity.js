@@ -1,3 +1,4 @@
+const path = require('node:path');
 const db = require('./db');
 const { registerAccountRoutes } = require('./account');
 
@@ -45,6 +46,14 @@ function serializeActivity(row) {
 
 function registerActivityRoutes(app, dependencies) {
   const { requireAuth, asyncHandler, httpError } = dependencies;
+  const publicRoot = process.cwd();
+  const sendAccountAsset = (fileName, type) => (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=3600');
+    if (type) res.type(type);
+    res.sendFile(path.join(publicRoot, fileName));
+  };
+  app.get('/account-client.js', sendAccountAsset('account-client.js', 'application/javascript'));
+  app.get('/account.css', sendAccountAsset('account.css', 'text/css'));
   registerAccountRoutes(app, dependencies);
 
   app.get('/api/activities', requireAuth, asyncHandler(async (req, res) => {
