@@ -26,8 +26,10 @@ struct ZweiCheckApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                model.refreshSharedDraft()
+            guard phase == .active else { return }
+            model.refreshSharedDraft()
+            if model.sessionState == .signedIn {
+                Task { await model.refreshSessionAndData() }
             }
         }
     }
