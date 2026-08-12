@@ -85,6 +85,9 @@ jobs:
             cat /tmp/zweicheck.log
             exit 1
           fi
+          curl -fsS http://127.0.0.1:3000/ -o /tmp/index.html
+          curl -fsS http://127.0.0.1:3000/app.css -o /tmp/app.css
+          curl -fsS http://127.0.0.1:3000/manifest.webmanifest -o /tmp/manifest.webmanifest
           curl -fsS http://127.0.0.1:3000/push-client.js -o /tmp/push-client.js
           curl -fsS http://127.0.0.1:3000/deep-link.js -o /tmp/deep-link.js
           curl -fsS http://127.0.0.1:3000/activity-center.js -o /tmp/activity-center.js
@@ -95,6 +98,11 @@ jobs:
           curl -fsS http://127.0.0.1:3000/escalation.css -o /tmp/escalation.css
           curl -fsS http://127.0.0.1:3000/account-client.js -o /tmp/account-client.js
           curl -fsS http://127.0.0.1:3000/account.css -o /tmp/account.css
+          grep -q 'class="skip-link"' /tmp/index.html
+          grep -q 'senior-a11y-v1' /tmp/index.html
+          grep -q 'prefers-reduced-motion: reduce' /tmp/app.css
+          grep -q 'focus-visible' /tmp/app.css
+          grep -q '"id": "/"' /tmp/manifest.webmanifest
           grep -q 'Notification.requestPermission' /tmp/push-client.js
           grep -q 'requestedCheckId' /tmp/deep-link.js
           grep -q 'zc-activity-overlay' /tmp/activity-center.js
@@ -124,5 +132,10 @@ jobs:
             grep -Fq "registerAccountRoutes" /app/server/activity.js &&
             grep -Fq "app.delete('\''/api/account'\''" /app/server/account.js &&
             grep -Fq "account-privacy-v1" /app/index.html &&
+            grep -Fq "senior-a11y-v1" /app/index.html &&
+            grep -Fq "class=\"skip-link\"" /app/index.html &&
+            grep -Fq "prefers-reduced-motion: reduce" /app/app.css &&
+            grep -Fq "zweicheck-phase3-v13" /app/sw.js &&
+            grep -Fq "\"id\": \"/\"" /app/manifest.webmanifest &&
             grep -Fq "data-zc-delete-form" /app/account-client.js
           '
