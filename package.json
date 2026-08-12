@@ -1,8 +1,8 @@
 {
   "name": "zweicheck",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
-  "description": "ZweiCheck – echte Konten, Vertrauensverbindungen und Prüfanfragen",
+  "description": "ZweiCheck – einfache menschliche Zweitmeinung für sichere Entscheidungen",
   "scripts": {
     "start": "node scripts/patch-server-push.js && node server/index.js",
     "migrate": "node server/migrate.js",
