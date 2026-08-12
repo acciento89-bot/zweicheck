@@ -19,6 +19,8 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_PRIVATE_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_B64 }}
+      MAIN_PROFILE_NAME: ZweiCheck CI App Store
+      SHARE_PROFILE_NAME: ZweiCheck Share CI App Store
 
     steps:
       - name: Repository auschecken
@@ -56,7 +58,7 @@ jobs:
             -out "$RUNNER_TEMP/ci-signing.csr" \
             -subj "/CN=ZweiCheck GitHub CI/O=Kamilunavo/C=DE"
 
-      - name: Entwicklungszertifikat und Profile erzeugen
+      - name: Distribution-Zertifikat und App-Store-Profile erzeugen
         shell: bash
         run: |
           set -euo pipefail
@@ -79,41 +81,43 @@ jobs:
                   raise SystemExit(f"{label} fehlgeschlagen: HTTP {response.status_code}\n{response.text[:3000]}")
               return response.json() if response.content else None
 
-          # Von früheren fehlgeschlagenen GitHub-Runs erzeugte, nicht mehr nutzbare
-          # API-Development-Zertifikate aufräumen. Das bestehende Distribution-
-          # Zertifikat wird ausdrücklich nicht angefasst.
+          # Nur von CI erzeugte Apple-Distribution-Zertifikate aufräumen.
+          # Das vorhandene persönliche Distribution-Zertifikat bleibt unangetastet.
           cert_list = require(requests.get(base + '/certificates', headers=headers, params={'limit':'50'}, timeout=30), 200, 'Zertifikatsliste')
           for cert in cert_list.get('data', []):
               attrs = cert.get('attributes', {})
-              if attrs.get('certificateType') == 'DEVELOPMENT' and attrs.get('displayName') == 'Created via API':
+              if attrs.get('certificateType') == 'IOS_DISTRIBUTION' and attrs.get('displayName') == 'Created via API':
                   r = requests.delete(base + '/certificates/' + cert['id'], headers=headers, timeout=30)
                   if r.status_code not in (204, 404):
-                      print(f"Warnung: altes Development-Zertifikat {cert['id']} konnte nicht entfernt werden: HTTP {r.status_code}")
+                      print(f"Warnung: altes CI-Distribution-Zertifikat {cert['id']} konnte nicht entfernt werden: HTTP {r.status_code}")
+
+          # Gleichnamige alte CI-Profile entfernen, falls ein früherer Lauf vor dem Cleanup abgebrochen ist.
+          for profile_name in [os.environ['MAIN_PROFILE_NAME'], os.environ['SHARE_PROFILE_NAME']]:
+              old = require(requests.get(base + '/profiles', headers=headers, params={'filter[name]': profile_name, 'limit':'50'}, timeout=30), 200, f'Profil-Liste {profile_name}')
+              for profile in old.get('data', []):
+                  if profile.get('attributes', {}).get('name') == profile_name:
+                      r = requests.delete(base + '/profiles/' + profile['id'], headers=headers, timeout=30)
+                      if r.status_code not in (204, 404):
+                          print(f"Warnung: altes CI-Profil {profile['id']} konnte nicht entfernt werden: HTTP {r.status_code}")
 
           csr = open(f'{temp}/ci-signing.csr', 'r', encoding='utf-8').read()
           cert_payload = {
               'data': {
                   'type': 'certificates',
-                  'attributes': {'certificateType': 'DEVELOPMENT', 'csrContent': csr}
+                  'attributes': {'certificateType': 'IOS_DISTRIBUTION', 'csrContent': csr}
               }
           }
-          cert_resp = require(requests.post(base + '/certificates', headers=headers, json=cert_payload, timeout=30), 201, 'Development-Zertifikat')
+          cert_resp = require(requests.post(base + '/certificates', headers=headers, json=cert_payload, timeout=30), 201, 'iOS-Distribution-Zertifikat')
           cert = cert_resp['data']
           cert_id = cert['id']
-          cert_content = cert['attributes']['certificateContent']
-          open(f'{temp}/ci-signing.cer', 'wb').write(base64.b64decode(cert_content))
-
-          device_resp = require(requests.get(base + '/devices', headers=headers, params={'limit':'50'}, timeout=30), 200, 'Geräteliste')
-          devices = [d for d in device_resp.get('data', []) if d.get('attributes', {}).get('status') != 'DISABLED']
-          if not devices:
-              raise SystemExit('Kein aktives Apple-Entwicklungsgerät gefunden.')
-          device_id = devices[0]['id']
+          open(f'{temp}/ci-signing.cer', 'wb').write(base64.b64decode(cert['attributes']['certificateContent']))
 
           resources = {'certificate_id': cert_id, 'profile_ids': []}
           targets = [
-              ('de.kamilunavo.zweicheck', 'ZweiCheck CI Development', 'main.mobileprovision'),
-              ('de.kamilunavo.zweicheck.share', 'ZweiCheck Share CI Development', 'share.mobileprovision'),
+              ('de.kamilunavo.zweicheck', os.environ['MAIN_PROFILE_NAME'], 'main.mobileprovision'),
+              ('de.kamilunavo.zweicheck.share', os.environ['SHARE_PROFILE_NAME'], 'share.mobileprovision'),
           ]
+
           for identifier, profile_name, filename in targets:
               bundle_resp = require(requests.get(base + '/bundleIds', headers=headers, params={'filter[identifier]': identifier, 'limit':'10'}, timeout=30), 200, f'Bundle-ID {identifier}')
               exact = [b for b in bundle_resp.get('data', []) if b.get('attributes', {}).get('identifier') == identifier]
@@ -124,23 +128,22 @@ jobs:
                   'data': {
                       'type': 'profiles',
                       'attributes': {
-                          'name': f'{profile_name} {os.environ.get("GITHUB_RUN_ID", "")}',
-                          'profileType': 'IOS_APP_DEVELOPMENT'
+                          'name': profile_name,
+                          'profileType': 'IOS_APP_STORE'
                       },
                       'relationships': {
                           'bundleId': {'data': {'type': 'bundleIds', 'id': bundle_id}},
-                          'devices': {'data': [{'type': 'devices', 'id': device_id}]},
                           'certificates': {'data': [{'type': 'certificates', 'id': cert_id}]}
                       }
                   }
               }
-              profile_resp = require(requests.post(base + '/profiles', headers=headers, json=profile_payload, timeout=30), 201, f'Provisioning-Profil {identifier}')
+              profile_resp = require(requests.post(base + '/profiles', headers=headers, json=profile_payload, timeout=30), 201, f'App-Store-Profil {identifier}')
               profile = profile_resp['data']
               resources['profile_ids'].append(profile['id'])
               open(f'{temp}/{filename}', 'wb').write(base64.b64decode(profile['attributes']['profileContent']))
 
           open(f'{temp}/apple-signing-resources.json', 'w', encoding='utf-8').write(json.dumps(resources))
-          print('Lokales Development-Signing für Haupt-App und Share Extension wurde erzeugt.')
+          print('Apple-Distribution-Signing für Haupt-App und Share Extension wurde erzeugt.')
           PY
 
       - name: Signatur lokal installieren
@@ -153,6 +156,8 @@ jobs:
 
           openssl x509 -inform DER -in "$RUNNER_TEMP/ci-signing.cer" -out "$RUNNER_TEMP/ci-signing.pem"
           openssl pkcs12 -export \
+            -legacy \
+            -macalg sha1 \
             -out "$RUNNER_TEMP/ci-signing.p12" \
             -inkey "$RUNNER_TEMP/ci-signing.key" \
             -in "$RUNNER_TEMP/ci-signing.pem" \
@@ -173,10 +178,15 @@ jobs:
 
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
-          cp "$RUNNER_TEMP/main.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/zweicheck-main.mobileprovision"
-          cp "$RUNNER_TEMP/share.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/zweicheck-share.mobileprovision"
-          cp "$RUNNER_TEMP/main.mobileprovision" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/zweicheck-main.mobileprovision"
-          cp "$RUNNER_TEMP/share.mobileprovision" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/zweicheck-share.mobileprovision"
+
+          for pair in "main:$RUNNER_TEMP/main.mobileprovision" "share:$RUNNER_TEMP/share.mobileprovision"; do
+            label="${pair%%:*}"
+            profile="${pair#*:}"
+            security cms -D -i "$profile" > "$RUNNER_TEMP/${label}-profile.plist"
+            uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/${label}-profile.plist")
+            cp "$profile" "$HOME/Library/MobileDevice/Provisioning Profiles/${uuid}.mobileprovision"
+            cp "$profile" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/${uuid}.mobileprovision"
+          done
 
       - name: XcodeGen installieren
         run: brew install xcodegen
@@ -201,7 +211,7 @@ jobs:
       - name: Export-Optionen erstellen
         shell: bash
         run: |
-          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -211,9 +221,18 @@ jobs:
             <key>destination</key>
             <string>upload</string>
             <key>signingStyle</key>
-            <string>automatic</string>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
             <key>teamID</key>
             <string>TKG684N5GL</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>de.kamilunavo.zweicheck</key>
+              <string>$MAIN_PROFILE_NAME</string>
+              <key>de.kamilunavo.zweicheck.share</key>
+              <string>$SHARE_PROFILE_NAME</string>
+            </dict>
             <key>uploadSymbols</key>
             <true/>
             <key>manageAppVersionAndBuildNumber</key>
@@ -232,7 +251,6 @@ jobs:
             -archivePath "$RUNNER_TEMP/ZweiCheck.xcarchive" \
             -exportPath "$RUNNER_TEMP/TestFlightExport" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -allowProvisioningUpdates \
             -authenticationKeyPath "$KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
