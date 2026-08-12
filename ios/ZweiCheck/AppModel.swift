@@ -34,6 +34,7 @@ final class AppModel {
             await refreshAll()
             await syncStoredNativePushToken()
         } catch {
+            clearSignedInData()
             sessionState = .signedOut
         }
     }
@@ -44,6 +45,7 @@ final class AppModel {
             sessionState = .signedIn
             refreshSharedDraft()
             await refreshAll()
+            guard sessionState == .signedIn else { return }
             await syncStoredNativePushToken()
         }
     }
@@ -54,6 +56,7 @@ final class AppModel {
             sessionState = .signedIn
             refreshSharedDraft()
             await refreshAll()
+            guard sessionState == .signedIn else { return }
             await syncStoredNativePushToken()
             if user?.emailVerified == false {
                 message = "Bitte bestätige jetzt deine E-Mail-Adresse. Wir haben dir eine Nachricht geschickt."
@@ -66,12 +69,7 @@ final class AppModel {
             try? await api.unregisterNativePush(token: token, environment: NativePushManager.environment)
         }
         await api.logout()
-        user = nil
-        checks = []
-        routing = nil
-        activities = []
-        unreadActivityCount = 0
-        nativePushRegistered = false
+        clearSignedInData()
         sessionState = .signedOut
     }
 
@@ -86,17 +84,19 @@ final class AppModel {
             let activityResult = try await activitiesTask
             activities = activityResult.activities
             unreadActivityCount = activityResult.unreadCount
-        } catch { message = error.localizedDescription }
+        } catch {
+            handle(error)
+        }
     }
 
     func refreshChecks() async {
         do { checks = try await api.checks() }
-        catch { message = error.localizedDescription }
+        catch { handle(error) }
     }
 
     func refreshPeople() async {
         do { routing = try await api.trustRouting() }
-        catch { message = error.localizedDescription }
+        catch { handle(error) }
     }
 
     func refreshActivities() async {
@@ -104,7 +104,7 @@ final class AppModel {
             let result = try await api.activities()
             activities = result.activities
             unreadActivityCount = result.unreadCount
-        } catch { message = error.localizedDescription }
+        } catch { handle(error) }
     }
 
     func refreshSharedDraft() {
@@ -121,7 +121,7 @@ final class AppModel {
         do {
             _ = try await api.markActivityRead(id: activity.id)
             await refreshActivities()
-        } catch { message = error.localizedDescription }
+        } catch { handle(error) }
     }
 
     func markAllActivitiesRead() async {
@@ -176,7 +176,11 @@ final class AppModel {
             try await api.registerNativePush(token: token, environment: NativePushManager.environment)
             nativePushRegistered = true
         } catch {
-            nativePushRegistered = false
+            if let apiError = error as? APIClientError, apiError.isUnauthorized {
+                handle(error)
+            } else {
+                nativePushRegistered = false
+            }
         }
     }
 
@@ -254,12 +258,7 @@ final class AppModel {
     func deleteAccount(password: String) async {
         await runBusy {
             try await api.deleteAccount(password: password)
-            user = nil
-            checks = []
-            routing = nil
-            activities = []
-            unreadActivityCount = 0
-            nativePushRegistered = false
+            clearSignedInData()
             sessionState = .signedOut
             message = "Dein ZweiCheck-Konto wurde gelöscht."
         }
@@ -286,6 +285,25 @@ final class AppModel {
         isBusy = true
         defer { isBusy = false }
         do { try await work() }
-        catch { message = error.localizedDescription }
+        catch { handle(error) }
+    }
+
+    private func handle(_ error: Error) {
+        if let apiError = error as? APIClientError, apiError.isUnauthorized {
+            clearSignedInData()
+            sessionState = .signedOut
+            message = "Deine Anmeldung ist nicht mehr gültig. Bitte melde dich erneut an."
+            return
+        }
+        message = error.localizedDescription
+    }
+
+    private func clearSignedInData() {
+        user = nil
+        checks = []
+        routing = nil
+        activities = []
+        unreadActivityCount = 0
+        nativePushRegistered = false
     }
 }
