@@ -47,8 +47,12 @@ test('senior-first account UI uses explicit confirmation and no mutation observe
   assert.match(client, /confirmDelete/);
   assert.match(client, /window\.confirm/);
   assert.match(client, /unsubscribePush/);
+  assert.match(client, /href="\/privacy"/);
+  assert.match(client, /href="\/support"/);
+  assert.match(client, /ZweiCheck 1\.0\.0/);
   assert.doesNotMatch(client, /MutationObserver/);
   assert.match(css, /min-height: 54px/);
+  assert.match(css, /zc-account-links/);
   assert.match(css, /focus-visible/);
 });
 
@@ -64,16 +68,16 @@ test('account assets are shipped through the existing activity registration path
   assert.match(activity, /registerAccountRoutes/);
   assert.match(activity, /account-client\.js/);
   assert.match(activity, /account\.css/);
-  assert.match(index, /account-privacy-v1/);
+  assert.match(index, /zweicheck-build" content="release-1\.0\.0"/);
   assert.match(index, /app\.js\?v=6/);
   assert.match(index, /app\.css\?v=2/);
-  assert.match(index, /account-client\.js\?v=1/);
-  assert.match(index, /account\.css\?v=1/);
-  assert.match(serviceWorker, /zweicheck-phase3-v13/);
+  assert.match(index, /account-client\.js\?v=2/);
+  assert.match(index, /account\.css\?v=2/);
+  assert.match(serviceWorker, /zweicheck-phase3-v14/);
   assert.match(serviceWorker, /app\.js\?v=6/);
   assert.match(serviceWorker, /app\.css\?v=2/);
-  assert.match(serviceWorker, /account-client\.js\?v=1/);
-  assert.match(serviceWorker, /account\.css\?v=1/);
+  assert.match(serviceWorker, /account-client\.js\?v=2/);
+  assert.match(serviceWorker, /account\.css\?v=2/);
 });
 
 test('production start and Docker lifecycle stay unchanged', () => {

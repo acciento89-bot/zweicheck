@@ -105,6 +105,34 @@
   font-size: 1rem;
 }
 
+.zc-account-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  padding-top: 4px;
+}
+
+.zc-account-links a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: #087b7b;
+  font-weight: 750;
+  text-underline-offset: 3px;
+}
+
+.zc-account-links a:focus-visible {
+  outline: 3px solid #0f827e;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.zc-account-version {
+  margin: -6px 0 0;
+  color: #718196;
+  font-size: .88rem;
+}
+
 @media (min-width: 640px) {
   .zc-account-action {
     grid-template-columns: 1fr auto;
