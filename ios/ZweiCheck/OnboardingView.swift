@@ -15,7 +15,7 @@ struct OnboardingView: View {
             symbol: "person.2.fill",
             title: "1. Vertrauensperson verbinden",
             text: "Verbinde jemanden, den du wirklich kennst. Diese Person bekommt deine Prüfanfrage direkt in ZweiCheck und kann dir antworten.",
-            accent: AppTheme.navy
+            accent: AppTheme.navySolid
         ),
         OnboardingPage(
             symbol: "square.and.arrow.up.fill",
@@ -135,7 +135,7 @@ struct OnboardingView: View {
                     title: "Premium Familie",
                     price: "39,99 € / Jahr",
                     subtitle: "Günstiger als 12 einzelne Monatszahlungen",
-                    accent: AppTheme.teal,
+                    accent: AppTheme.tealBright,
                     highlighted: true,
                     badge: "BESTE WAHL",
                     features: premiumFeatures
@@ -186,7 +186,7 @@ struct OnboardingView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(accent, in: Capsule())
+                        .background(highlighted ? AppTheme.teal : AppTheme.navySolid, in: Capsule())
                 }
             }
 
@@ -203,19 +203,19 @@ struct OnboardingView: View {
             }
         }
         .padding(18)
-        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 20))
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
         .overlay {
             RoundedRectangle(cornerRadius: 20)
-                .stroke(highlighted ? accent : AppTheme.navy.opacity(0.14), lineWidth: highlighted ? 2.5 : 1)
+                .stroke(highlighted ? AppTheme.tealBright : AppTheme.separator.opacity(0.9), lineWidth: highlighted ? 2.5 : 1)
         }
-        .shadow(color: highlighted ? accent.opacity(0.12) : .clear, radius: 14, y: 7)
+        .shadow(color: highlighted ? AppTheme.teal.opacity(0.14) : .clear, radius: 14, y: 7)
     }
 
     private func pageDots(total: Int, selected: Int) -> some View {
         HStack(spacing: 8) {
             ForEach(0..<total, id: \.self) { index in
                 Capsule()
-                    .fill(index == selected ? AppTheme.teal : AppTheme.navy.opacity(0.16))
+                    .fill(index == selected ? AppTheme.tealBright : AppTheme.separator.opacity(0.7))
                     .frame(width: index == selected ? 24 : 8, height: 8)
             }
         }
