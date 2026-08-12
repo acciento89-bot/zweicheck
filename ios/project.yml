@@ -25,6 +25,7 @@ targets:
         CURRENT_PROJECT_VERSION: 2
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: ZweiCheck
+        INFOPLIST_KEY_CFBundleIconName: AppIcon
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
