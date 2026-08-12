@@ -9,7 +9,7 @@ const SHELL = [
   '/activity-center.css?v=2',
   '/activity-center.js?v=2',
   '/trust-routing.css?v=1',
-  '/trust-routing.js?v=1',
+  '/trust-routing.js?v=2',
   '/manifest.webmanifest',
   '/assets/brand/zweicheck-mark.svg',
   '/assets/brand/zweicheck-logo-horizontal.svg'
