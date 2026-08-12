@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         defer { completionHandler() }
         guard let urlString = response.notification.request.content.userInfo["url"] as? String,
               let url = URL(string: urlString) else { return }
+        NativePushManager.storePendingNotificationURL(url)
         NotificationCenter.default.post(name: .zweiCheckOpenNotificationURL, object: url)
     }
 }
