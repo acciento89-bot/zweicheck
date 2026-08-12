@@ -22,12 +22,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: de.kamilunavo.zweicheck
         PRODUCT_NAME: ZweiCheck
         MARKETING_VERSION: 1.0.0
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: ZweiCheck
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
         CODE_SIGN_ENTITLEMENTS: ZweiCheck/ZweiCheck.entitlements
@@ -64,7 +65,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: de.kamilunavo.zweicheck.share
         PRODUCT_NAME: ZweiCheckShare
         MARKETING_VERSION: 1.0.0
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         CODE_SIGN_ENTITLEMENTS: ZweiCheckShare/ZweiCheckShare.entitlements
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
