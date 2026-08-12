@@ -1,9 +1,18 @@
 import SwiftUI
 
 enum AppTheme {
-    // Gleiche Markenfarben wie in app.css der Web-Version.
-    static let navy = Color(red: 0.024, green: 0.102, blue: 0.184)       // #061a2f
+    // Feste Markenfarbe für Flächen, Icons und Buttons.
+    static let navySolid = Color(red: 0.024, green: 0.102, blue: 0.184)   // #061a2f
     static let navySoft = Color(red: 0.043, green: 0.161, blue: 0.271)   // #0b2945
+
+    // Adaptive Marken-Schrift: dunkel im Light Mode, hell im Dark Mode.
+    static let navy = Color(uiColor: UIColor { traits in
+        if traits.userInterfaceStyle == .dark {
+            return UIColor(red: 0.82, green: 0.90, blue: 0.97, alpha: 1)
+        }
+        return UIColor(red: 0.024, green: 0.102, blue: 0.184, alpha: 1)
+    })
+
     static let teal = Color(red: 0.039, green: 0.651, blue: 0.651)       // #0aa6a6
     static let tealBright = Color(red: 0.075, green: 0.757, blue: 0.729) // #13c1ba
     static let orange = Color(red: 0.859, green: 0.424, blue: 0.125)     // #db6c20
@@ -12,6 +21,7 @@ enum AppTheme {
     static let background = Color(uiColor: .systemGroupedBackground)
     static let card = Color(uiColor: .secondarySystemGroupedBackground)
     static let inputBackground = Color(uiColor: .systemBackground)
+    static let separator = Color(uiColor: .separator)
 }
 
 struct SeniorPrimaryButtonStyle: ButtonStyle {
@@ -42,8 +52,8 @@ struct SeniorSecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 52)
             .padding(.horizontal, 16)
             .foregroundStyle(AppTheme.navy)
-            .background(Color(uiColor: .systemBackground).opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.navy.opacity(0.15)))
+            .background(Color(uiColor: .secondarySystemGroupedBackground).opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.separator.opacity(0.9), lineWidth: 1))
     }
 }
 
@@ -65,7 +75,7 @@ enum ZweiCheckActionTone {
         case .positive: AppTheme.green
         case .warning: Color(red: 1.0, green: 0.85, blue: 0.74)
         case .danger: AppTheme.red
-        case .navy: AppTheme.navy
+        case .navy: AppTheme.navySolid
         }
     }
 }
@@ -93,7 +103,7 @@ struct SeniorInputSurface: ViewModifier {
             .background(AppTheme.inputBackground, in: RoundedRectangle(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(focused ? AppTheme.tealBright : AppTheme.navy.opacity(0.28), lineWidth: focused ? 2.5 : 1.5)
+                    .stroke(focused ? AppTheme.tealBright : AppTheme.separator.opacity(0.95), lineWidth: focused ? 2.5 : 1.5)
             }
     }
 }
