@@ -41,7 +41,13 @@
             <button type="submit" class="button button-warning">Konto dauerhaft löschen</button>
           </form>
         </div>
-      </details>`;
+      </details>
+      <nav class="zc-account-links" aria-label="Datenschutz und Hilfe">
+        <a href="/privacy" target="_blank" rel="noopener">Datenschutz</a>
+        <a href="/privacy-choices" target="_blank" rel="noopener">Datenschutz-Einstellungen</a>
+        <a href="/support" target="_blank" rel="noopener">Hilfe & Support</a>
+      </nav>
+      <p class="zc-account-version">ZweiCheck 1.0.0</p>`;
     logout.before(panel);
   }
 
