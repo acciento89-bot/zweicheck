@@ -67,6 +67,7 @@ jobs:
           EMAIL_MODE: log
           UPLOAD_DIR: /tmp/zweicheck-uploads
         run: |
+          set -x
           npm start > /tmp/zweicheck.log 2>&1 &
           server_pid=$!
           ready=0
