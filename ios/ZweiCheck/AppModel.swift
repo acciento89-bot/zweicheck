@@ -95,19 +95,43 @@ final class AppModel {
 
     func refreshAll() async {
         guard sessionState == .signedIn else { return }
+
         do {
-            async let checksTask = api.checks()
-            async let routingTask = api.trustRouting()
-            async let activitiesTask = api.activities(filter: activityUnreadOnly ? "unread" : "all")
-            async let invitationsTask = api.pendingInvitations()
-            checks = try await checksTask
-            routing = try await routingTask
-            pendingInvitations = try await invitationsTask
-            let activityResult = try await activitiesTask
+            checks = try await api.checks()
+        } catch {
+            handle(error)
+            if sessionState != .signedIn { return }
+        }
+
+        do {
+            routing = try await api.trustRouting()
+        } catch {
+            if !isNotFound(error) { handle(error) }
+            if sessionState != .signedIn { return }
+        }
+
+        do {
+            pendingInvitations = try await api.pendingInvitations()
+        } catch {
+            if isNotFound(error) {
+                pendingInvitations = []
+            } else {
+                handle(error)
+            }
+            if sessionState != .signedIn { return }
+        }
+
+        do {
+            let activityResult = try await api.activities(filter: activityUnreadOnly ? "unread" : "all")
             activities = activityResult.activities
             unreadActivityCount = activityResult.unreadCount
         } catch {
-            handle(error)
+            if isNotFound(error) {
+                activities = []
+                unreadActivityCount = 0
+            } else {
+                handle(error)
+            }
         }
     }
 
@@ -118,11 +142,16 @@ final class AppModel {
 
     func refreshPeople() async {
         do {
-            async let routingTask = api.trustRouting()
-            async let invitationsTask = api.pendingInvitations()
-            routing = try await routingTask
-            pendingInvitations = try await invitationsTask
-        } catch { handle(error) }
+            routing = try await api.trustRouting()
+        } catch {
+            if !isNotFound(error) { handle(error) }
+        }
+        do {
+            pendingInvitations = try await api.pendingInvitations()
+        } catch {
+            if isNotFound(error) { pendingInvitations = [] }
+            else { handle(error) }
+        }
     }
 
     func refreshActivities(unreadOnly: Bool? = nil) async {
@@ -131,7 +160,14 @@ final class AppModel {
             let result = try await api.activities(filter: activityUnreadOnly ? "unread" : "all")
             activities = result.activities
             unreadActivityCount = result.unreadCount
-        } catch { handle(error) }
+        } catch {
+            if isNotFound(error) {
+                activities = []
+                unreadActivityCount = 0
+            } else {
+                handle(error)
+            }
+        }
     }
 
     func refreshSharedDraft() {
@@ -148,7 +184,9 @@ final class AppModel {
         do {
             _ = try await api.markActivityRead(id: activity.id)
             await refreshActivities()
-        } catch { handle(error) }
+        } catch {
+            if !isNotFound(error) { handle(error) }
+        }
     }
 
     func markAllActivitiesRead() async {
@@ -344,17 +382,30 @@ final class AppModel {
 
     func checkDetails(id: String) async -> CheckItem? {
         do { return try await api.check(id: id) }
-        catch { handle(error); return nil }
+        catch {
+            if isNotFound(error) {
+                message = "Diese Prüfung ist nicht mehr verfügbar."
+            } else {
+                handle(error)
+            }
+            return nil
+        }
     }
 
     func checkRouting(id: String) async -> CheckRouting? {
         do { return try await api.routing(checkID: id) }
-        catch { handle(error); return nil }
+        catch {
+            if !isNotFound(error) { handle(error) }
+            return nil
+        }
     }
 
     func checkEscalation(id: String) async -> EscalationPlan? {
         do { return try await api.escalation(checkID: id) }
-        catch { handle(error); return nil }
+        catch {
+            if !isNotFound(error) { handle(error) }
+            return nil
+        }
     }
 
     func reroute(checkID: String, reviewerID: String) async -> Bool {
@@ -383,7 +434,10 @@ final class AppModel {
 
     func attachmentData(id: String) async -> Data? {
         do { return try await api.attachmentData(id: id) }
-        catch { handle(error); return nil }
+        catch {
+            if !isNotFound(error) { handle(error) }
+            return nil
+        }
     }
 
     func prepareAccountExport() async -> URL? {
@@ -396,7 +450,11 @@ final class AppModel {
             try data.write(to: file, options: .atomic)
             return file
         } catch {
-            handle(error)
+            if isNotFound(error) {
+                message = "Der Datenexport ist auf dem Server gerade nicht verfügbar."
+            } else {
+                handle(error)
+            }
             return nil
         }
     }
@@ -426,6 +484,10 @@ final class AppModel {
         }
     }
 
+    private func isNotFound(_ error: Error) -> Bool {
+        (error as? APIClientError)?.isNotFound == true
+    }
+
     private func fragmentValues(_ fragment: String?) -> [String: String] {
         guard let fragment else { return [:] }
         var result: [String: String] = [:]
@@ -450,6 +512,10 @@ final class AppModel {
             clearSignedInData()
             sessionState = .signedOut
             message = "Deine Anmeldung ist nicht mehr gültig. Bitte melde dich erneut an."
+            return
+        }
+        if let apiError = error as? APIClientError, apiError.isNotFound {
+            message = "Diese Funktion ist gerade nicht verfügbar. Bitte versuche es nach der Server-Aktualisierung erneut."
             return
         }
         message = error.localizedDescription
