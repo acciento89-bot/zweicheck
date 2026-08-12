@@ -17,45 +17,81 @@ struct AccountView: View {
                     Button("Bestätigungs-E-Mail erneut senden") {
                         Task { await model.resendVerification() }
                     }
+                    .buttonStyle(SeniorSecondaryButtonStyle())
                 }
             }
 
-            Section("ZweiCheck Premium Familie") {
-                if model.premium.isPremiumFamily {
-                    Label("Premium Familie aktiv", systemImage: "checkmark.seal.fill")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.teal)
-                    Text("Dein Jahresabo ist aktiv. Wenn Familienfreigabe für das Abo aktiviert ist, kann Apple den Zugang mit deiner Familie teilen.")
-                        .foregroundStyle(.secondary)
-                } else if let product = model.premium.product {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(product.displayName).font(.headline)
-                        Text(product.description).foregroundStyle(.secondary)
-                        Text("\(product.displayPrice) pro Jahr").font(.title3.bold())
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .top, spacing: 14) {
+                        Image(systemName: "person.3.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .frame(width: 48, height: 48)
+                            .background(AppTheme.navy, in: RoundedRectangle(cornerRadius: 14))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("ZweiCheck Premium Familie")
+                                .font(.title3.bold())
+                                .foregroundStyle(AppTheme.navy)
+                            Text("Ein Jahresabo für die Familie")
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    Button("Premium Familie jährlich abonnieren") {
+
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(model.premium.annualPriceText)
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(AppTheme.navy)
+                        Text("/ Jahr")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("entspricht nur \(PremiumStore.familyMonthlyEquivalent) pro Monat")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.teal)
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        premiumFeature("Für die Familie gedacht", symbol: "person.3")
+                        premiumFeature("Käufe jederzeit wiederherstellbar", symbol: "arrow.clockwise")
+                        premiumFeature("Abrechnung sicher über den App Store", symbol: "checkmark.shield")
+                    }
+
+                    if model.premium.isPremiumFamily {
+                        Label("Premium Familie aktiv", systemImage: "checkmark.seal.fill")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.green)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(AppTheme.green.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+                    } else {
+                        Button {
+                            Task {
+                                await model.premium.purchaseFamilyYearly()
+                                forwardPremiumMessage()
+                            }
+                        } label: {
+                            Label("Premium Familie für \(model.premium.annualPriceText) / Jahr", systemImage: "sparkles")
+                        }
+                        .buttonStyle(SeniorPrimaryButtonStyle())
+                        .disabled(model.premium.isLoading)
+                    }
+
+                    Button("Käufe wiederherstellen") {
                         Task {
-                            await model.premium.purchaseFamilyYearly()
+                            await model.premium.restorePurchases()
                             forwardPremiumMessage()
                         }
                     }
+                    .buttonStyle(SeniorSecondaryButtonStyle())
                     .disabled(model.premium.isLoading)
-                } else {
-                    Text("Premium Familie – Jahresabo")
-                        .font(.headline)
-                    Text("Das Abo wird über den App Store bereitgestellt und kann für Apple Familienfreigabe freigeschaltet werden.")
-                        .foregroundStyle(.secondary)
-                    Button("Abo wird im App Store vorbereitet") {}
-                        .disabled(true)
                 }
-
-                Button("Käufe wiederherstellen") {
-                    Task {
-                        await model.premium.restorePurchases()
-                        forwardPremiumMessage()
-                    }
-                }
-                .disabled(model.premium.isLoading)
+                .padding(.vertical, 6)
+            } header: {
+                Text("Premium")
+            } footer: {
+                Text("Das Jahresabo verlängert sich automatisch, bis es in den Apple-Aboeinstellungen gekündigt wird.")
             }
 
             Section("Benachrichtigungen") {
@@ -63,11 +99,12 @@ struct AccountView: View {
                     .foregroundStyle(.secondary)
                 if model.nativePushRegistered {
                     Label("Push-Benachrichtigungen sind eingerichtet", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(AppTheme.teal)
+                        .foregroundStyle(AppTheme.green)
                 } else {
                     Button("Push-Benachrichtigungen aktivieren") {
                         Task { await model.enableNativePush() }
                     }
+                    .buttonStyle(SeniorPrimaryButtonStyle())
                     .disabled(model.user?.emailVerified != true || model.isBusy)
                 }
                 Text("Nach einer bestätigten Anmeldung richtet ZweiCheck Push automatisch ein, sobald du die iOS-Freigabe erteilst.")
@@ -90,6 +127,7 @@ struct AccountView: View {
                         exporting = false
                     }
                 }
+                .buttonStyle(SeniorSecondaryButtonStyle())
                 .disabled(exporting || model.isBusy)
             }
 
@@ -101,6 +139,7 @@ struct AccountView: View {
 
             Section {
                 Button("Abmelden") { Task { await model.logout() } }
+                    .buttonStyle(ZweiCheckActionButtonStyle(tone: .navy))
             }
 
             Section("Konto löschen") {
@@ -109,6 +148,7 @@ struct AccountView: View {
                 SecureField("Aktuelles Passwort", text: $password)
                 Toggle("Ich habe verstanden, dass mein Konto dauerhaft gelöscht wird.", isOn: $understandsDeletion)
                 Button("Konto dauerhaft löschen", role: .destructive) { confirmDelete = true }
+                    .buttonStyle(ZweiCheckActionButtonStyle(tone: .danger))
                     .disabled(password.isEmpty || !understandsDeletion || model.isBusy)
             }
 
@@ -128,6 +168,12 @@ struct AccountView: View {
         } message: {
             Text("Diese Aktion kann nicht rückgängig gemacht werden.")
         }
+    }
+
+    private func premiumFeature(_ text: String, symbol: String) -> some View {
+        Label(text, systemImage: symbol)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.navy)
     }
 
     private var versionText: String {
