@@ -35,10 +35,7 @@ jobs:
       - name: Abhängigkeiten installieren
         run: npm install
       - name: Syntax prüfen
-        run: |
-          npm run check
-          node --check activity-center.js
-          node --check trust-routing.js
+        run: npm run check
       - name: Unit-Tests
         run: npm test
       - name: Datenbankschema anwenden
@@ -53,6 +50,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
         run: node scripts/trust-routing-db-check.js
+      - name: Eskalationsautomatik prüfen
+        env:
+          DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
+        run: node scripts/escalation-db-check.js
       - name: Server-Smoke-Test
         env:
           DATABASE_URL: postgresql://zweicheck:test_password@127.0.0.1:5432/zweicheck_test
@@ -85,18 +86,28 @@ jobs:
           curl -fsS http://127.0.0.1:3000/activity-center.css -o /tmp/activity-center.css
           curl -fsS http://127.0.0.1:3000/trust-routing.js -o /tmp/trust-routing.js
           curl -fsS http://127.0.0.1:3000/trust-routing.css -o /tmp/trust-routing.css
+          curl -fsS http://127.0.0.1:3000/escalation-client.js -o /tmp/escalation-client.js
+          curl -fsS http://127.0.0.1:3000/escalation.css -o /tmp/escalation.css
           grep -q 'Notification.requestPermission' /tmp/push-client.js
           grep -q 'requestedCheckId' /tmp/deep-link.js
           grep -q 'zc-activity-overlay' /tmp/activity-center.js
           grep -q 'zc-activity-card' /tmp/activity-center.css
           grep -q 'fallbackReviewerId' /tmp/trust-routing.js
           grep -q 'zc-routing-card' /tmp/trust-routing.css
+          grep -q 'escalationReminderMinutes' /tmp/escalation-client.js
+          grep -q 'zc-escalation-card' /tmp/escalation.css
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/activities)" = "401"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/trust-routing)" = "401"
-      - name: Docker-Image bauen und Trust-Hotfix prüfen
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/checks/11111111-1111-4111-8111-111111111111/escalation)" = "401"
+      - name: Docker-Image bauen und Runtime-Patches prüfen
         run: |
           docker build -t zweicheck:test .
           docker run --rm --entrypoint sh zweicheck:test -c '
             grep -Fq "observer.observe(appRoot, { childList: true });" /app/trust-routing.js &&
-            ! grep -Fq "observer.observe(document.documentElement, { childList: true, subtree: true });" /app/trust-routing.js
+            ! grep -Fq "observer.observe(document.documentElement, { childList: true, subtree: true });" /app/trust-routing.js &&
+            grep -Fq "registerEscalationRoutes(app" /app/server/index.js &&
+            grep -Fq "startEscalationWorker();" /app/server/index.js &&
+            grep -Fq "reminderMinutes: req.body.escalationReminderMinutes" /app/server/index.js &&
+            grep -Fq "eventType === '\''check_reminder'\''" /app/server/push.js &&
+            grep -Fq "eventType === '\''check_reminder'\''" /app/server/notification-worker.js
           '
