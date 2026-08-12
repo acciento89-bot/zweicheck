@@ -9,9 +9,9 @@ struct ActivityView: View {
             Group {
                 if model.activities.isEmpty {
                     ContentUnavailableView(
-                        "Noch keine Aktivitäten",
+                        model.activityUnreadOnly ? "Keine ungelesenen Aktivitäten" : "Noch keine Aktivitäten",
                         systemImage: "bell",
-                        description: Text("Neue Prüfanfragen, Antworten und Einladungen erscheinen hier.")
+                        description: Text("Neue Prüfanfragen, Antworten, Erinnerungen und Einladungen erscheinen hier.")
                     )
                 } else {
                     List(model.activities) { activity in
@@ -43,10 +43,28 @@ struct ActivityView: View {
                             .padding(.vertical, 5)
                         }
                         .buttonStyle(.plain)
+                        .swipeActions {
+                            Button("Ausblenden", role: .destructive) {
+                                Task { await model.archiveActivity(activity) }
+                            }
+                        }
                     }
                 }
             }
             .navigationTitle("Aktivitäten")
+            .safeAreaInset(edge: .top) {
+                Picker("Anzeige", selection: Binding(
+                    get: { model.activityUnreadOnly },
+                    set: { value in Task { await model.refreshActivities(unreadOnly: value) } }
+                )) {
+                    Text("Alle").tag(false)
+                    Text("Ungelesen").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.bottom, 6)
+                .background(.bar)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Schließen") { dismiss() }
@@ -67,6 +85,7 @@ struct ActivityView: View {
         case "check_created": "checkmark.shield"
         case "check_answered": "arrowshape.turn.up.left"
         case "check_closed": "checkmark.circle"
+        case "check_reminder": "bell.badge"
         case "invitation_received": "person.badge.plus"
         case "invitation_accepted": "person.2"
         case "invitation_declined": "person.badge.minus"
