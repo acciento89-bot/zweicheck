@@ -14,12 +14,21 @@ const patchedCodeV2 = `    state.pollingTimer = window.setInterval(async () => {
       );
       if (!pollingLocked) render();
     }, 15000);`;
+const stablePollingCode = `    state.pollingTimer = window.setInterval(async () => {
+      await loadData({ quiet: true });
+      window.dispatchEvent(new CustomEvent('zweicheck:data-refreshed'));
+    }, 15000);`;
 
-if (!source.includes(patchedCodeV2)) {
-  if (source.includes(patchedCodeV1)) {
-    source = source.replace(patchedCodeV1, patchedCodeV2);
+// Hintergrund-Aktualisierung darf niemals den sichtbaren Renderbaum ersetzen.
+// Das verhindert, dass Login-Zielansichten, Prüfschritte, Selects, Reminder,
+// Bilder oder geöffnete Hilfebereiche während der Bedienung zurückgesetzt werden.
+if (!source.includes(stablePollingCode)) {
+  if (source.includes(patchedCodeV2)) {
+    source = source.replace(patchedCodeV2, stablePollingCode);
+  } else if (source.includes(patchedCodeV1)) {
+    source = source.replace(patchedCodeV1, stablePollingCode);
   } else if (source.includes(oldCode)) {
-    source = source.replace(oldCode, patchedCodeV2);
+    source = source.replace(oldCode, stablePollingCode);
   } else {
     throw new Error('Expected polling code was not found in app.js');
   }
