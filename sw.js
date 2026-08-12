@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zweicheck-phase3-v13';
+const CACHE_NAME = 'zweicheck-phase3-v14';
 const SHELL = [
   '/',
   '/index.html',
@@ -12,8 +12,11 @@ const SHELL = [
   '/trust-routing.js?v=2',
   '/escalation.css?v=2',
   '/escalation-client.js?v=2',
-  '/account.css?v=1',
-  '/account-client.js?v=1',
+  '/account.css?v=2',
+  '/account-client.js?v=2',
+  '/privacy',
+  '/privacy-choices',
+  '/support',
   '/manifest.webmanifest',
   '/assets/brand/zweicheck-mark.svg',
   '/assets/brand/zweicheck-logo-horizontal.svg'
