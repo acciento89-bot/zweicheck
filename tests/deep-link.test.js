@@ -17,5 +17,5 @@ test('deep link waits for the authenticated app and opens a check', () => {
 test('deep link script is shipped and cached', () => {
   assert.match(index, /deep-link\.js\?v=1/);
   assert.match(serviceWorker, /deep-link\.js\?v=1/);
-  assert.match(serviceWorker, /zweicheck-phase3-v7/);
+  assert.match(serviceWorker, /zweicheck-phase3-v8/);
 });
