@@ -218,8 +218,6 @@ final class APIClient {
     private func perform(_ originalRequest: URLRequest) async throws -> Data {
         var request = originalRequest
 
-        // URLSession's cookie handling with an ephemeral/custom cookie store isn't reliable
-        // enough for our HttpOnly server session. Attach the persisted token explicitly.
         if request.value(forHTTPHeaderField: "Cookie") == nil,
            let token = sessionToken ?? keychain.load(),
            !token.isEmpty {
@@ -240,6 +238,9 @@ final class APIClient {
             if http.statusCode == 401 {
                 clearSessionCredentials()
                 throw APIClientError.unauthorized(serverMessage)
+            }
+            if http.statusCode == 404 {
+                throw APIClientError.notFound(request.url?.path ?? "", serverMessage)
             }
             throw APIClientError.message(serverMessage)
         }
@@ -310,6 +311,7 @@ final class APIClient {
 
 enum APIClientError: LocalizedError {
     case unauthorized(String)
+    case notFound(String, String)
     case message(String)
 
     var isUnauthorized: Bool {
@@ -317,9 +319,20 @@ enum APIClientError: LocalizedError {
         return false
     }
 
+    var isNotFound: Bool {
+        if case .notFound = self { return true }
+        return false
+    }
+
+    var path: String? {
+        if case .notFound(let path, _) = self { return path }
+        return nil
+    }
+
     var errorDescription: String? {
         switch self {
         case .unauthorized(let text), .message(let text): text
+        case .notFound(_, let text): text
         }
     }
 }
