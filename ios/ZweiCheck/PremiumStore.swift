@@ -6,11 +6,15 @@ import StoreKit
 @MainActor
 final class PremiumStore {
     static let familyYearlyProductID = "de.kamilunavo.zweicheck.premium.family.yearly"
+    static let familyYearlyTargetPrice = "39,99 €"
+    static let familyMonthlyEquivalent = "3,33 €"
 
     var product: Product?
     var isPremiumFamily = false
     var isLoading = false
     var message: String?
+
+    var annualPriceText: String { product?.displayPrice ?? Self.familyYearlyTargetPrice }
 
     private var updatesTask: Task<Void, Never>?
     private var didStart = false
@@ -28,7 +32,7 @@ final class PremiumStore {
 
     func purchaseFamilyYearly() async {
         guard let product else {
-            message = "Das Premium-Familienabo wird im App Store gerade vorbereitet."
+            message = "ZweiCheck Premium Familie kostet 39,99 € pro Jahr. Das Abo muss noch in App Store Connect für den Verkauf freigeschaltet werden."
             return
         }
         isLoading = true
