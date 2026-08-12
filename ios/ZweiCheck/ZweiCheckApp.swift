@@ -10,6 +10,10 @@ struct ZweiCheckApp: App {
             RootView(model: model)
                 .tint(AppTheme.teal)
                 .task { await model.bootstrap() }
+                .onOpenURL { url in model.handleIncomingURL(url) }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    if let url = activity.webpageURL { model.handleIncomingURL(url) }
+                }
         }
     }
 }

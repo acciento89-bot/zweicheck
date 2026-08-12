@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 final class KeychainSessionStore {
-    private let service = "com.kamilunavo.zweicheck.session"
+    private let service = "de.kamilunavo.zweicheck.session"
     private let account = "zc_session"
 
     func save(_ value: String) throws {

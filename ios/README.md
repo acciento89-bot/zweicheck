@@ -16,18 +16,22 @@ open ZweiCheck.xcodeproj
 
 Die App spricht direkt mit `https://zweicheck.kamilunavo.com` und verwendet die bestehende ZweiCheck-API. Keine WebView-Hülle.
 
-## Phase 1
+## Native 1.0 – aktueller Stand
 - Anmeldung und Registrierung
-- native Session mit Cookie + Keychain-Wiederherstellung
+- Session mit Cookie + Keychain-Wiederherstellung
 - Start / Senior-first CTA
 - neue Prüfanfrage in 4 Schritten
+- systemeigener PhotosPicker, maximal 3 Bilder; Bilder werden vor Upload als JPEG verkleinert
 - Prüfungen ansehen und beantworten
 - Vertrauenspersonen, Verfügbarkeit, Einladen, Einladungscode annehmen
+- native Aktivitäten mit Ungelesen-Zähler
 - Konto, Datenschutz/Support, native Kontolöschung
+- Universal-Link-Entitlement für `zweicheck.kamilunavo.com`
+- Bundle-ID `de.kamilunavo.zweicheck`
+- Apple Team `TKG684N5GL`
 
-## Danach
-- PhotosPicker + Bildupload
+## Als Nächstes
 - APNs Push
-- Universal Links + AASA
 - Share Extension für Links/Text/Screenshots
 - App Icon und Store Screenshots
+- signierter TestFlight-Build

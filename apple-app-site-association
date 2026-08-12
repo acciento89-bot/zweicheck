@@ -1,0 +1,23 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "TKG684N5GL.de.kamilunavo.zweicheck"
+        ],
+        "components": [
+          {
+            "/": "/",
+            "#": "invite=*",
+            "comment": "Öffnet ZweiCheck für Einladungscodes."
+          },
+          {
+            "/": "/",
+            "#": "check=*",
+            "comment": "Öffnet ZweiCheck direkt bei einer Prüfanfrage."
+          }
+        ]
+      }
+    ]
+  }
+}
