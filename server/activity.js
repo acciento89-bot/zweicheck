@@ -52,8 +52,17 @@ function registerActivityRoutes(app, dependencies) {
     if (type) res.type(type);
     res.sendFile(path.join(publicRoot, fileName));
   };
+  const sendPublicPage = (fileName) => (_req, res) => {
+    res.set('Cache-Control', 'no-cache');
+    res.type('html');
+    res.sendFile(path.join(publicRoot, fileName));
+  };
+
   app.get('/account-client.js', sendAccountAsset('account-client.js', 'application/javascript'));
   app.get('/account.css', sendAccountAsset('account.css', 'text/css'));
+  app.get(['/privacy', '/privacy.html'], sendPublicPage('privacy.html'));
+  app.get(['/privacy-choices', '/privacy-choices.html'], sendPublicPage('privacy-choices.html'));
+  app.get(['/support', '/support.html'], sendPublicPage('support.html'));
   registerAccountRoutes(app, dependencies);
 
   app.get('/api/activities', requireAuth, asyncHandler(async (req, res) => {
