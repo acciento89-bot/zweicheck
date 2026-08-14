@@ -30,7 +30,7 @@ jobs:
         run: |
           python3 -m venv "$RUNNER_TEMP/asc-venv"
           "$RUNNER_TEMP/asc-venv/bin/pip" install --quiet pyjwt cryptography requests
-      - name: Apple Provisioning und Build Uploads prüfen
+      - name: Apple Provisioning, Builds und App-Version prüfen
         shell: bash
         run: |
           "$RUNNER_TEMP/asc-venv/bin/python" - <<'PY'
@@ -121,7 +121,35 @@ jobs:
               rel = upload.get('relationships',{}).get('build',{}).get('data')
               if rel and rel.get('id') in included:
                   ba = included[rel['id']].get('attributes',{})
-                  print('  build.processingState=', ba.get('processingState'), 'build.version=', ba.get('version'), 'minOS=', ba.get('minOsVersion'))
+                  print('  build.id=', rel['id'], 'processingState=', ba.get('processingState'), 'build.version=', ba.get('version'), 'minOS=', ba.get('minOsVersion'))
+
+          versions = requests.get(base + f'/apps/{app_id}/appStoreVersions', headers=headers, params={
+              'filter[platform]': 'IOS',
+              'fields[appStoreVersions]': 'platform,versionString,appStoreState,appVersionState,createdDate,build,appStoreVersionSubmission',
+              'include': 'build,appStoreVersionSubmission',
+              'fields[builds]': 'version,uploadedDate,processingState,usesNonExemptEncryption,minOsVersion',
+              'limit': '20'
+          }, timeout=30)
+          print(f'\nAPP STORE VERSIONS: HTTP {versions.status_code}')
+          if versions.status_code != 200:
+              print(versions.text[:10000])
+              raise SystemExit(1)
+          vp = versions.json()
+          vbuilds = {i.get('id'): i for i in vp.get('included', []) if i.get('type') == 'builds'}
+          submissions = {i.get('id'): i for i in vp.get('included', []) if i.get('type') == 'appStoreVersionSubmissions'}
+          for version in vp.get('data', []):
+              a = version.get('attributes', {})
+              print('\nVERSION', version.get('id'), a.get('versionString'), a.get('platform'))
+              print('  appStoreState=', a.get('appStoreState'), 'appVersionState=', a.get('appVersionState'), 'created=', a.get('createdDate'))
+              brel = version.get('relationships',{}).get('build',{}).get('data')
+              if brel:
+                  b = vbuilds.get(brel.get('id'), {})
+                  ba = b.get('attributes',{})
+                  print('  attachedBuild.id=', brel.get('id'), 'version=', ba.get('version'), 'processingState=', ba.get('processingState'), 'uploaded=', ba.get('uploadedDate'))
+              else:
+                  print('  attachedBuild=None')
+              srel = version.get('relationships',{}).get('appStoreVersionSubmission',{}).get('data')
+              print('  submission=', srel)
           PY
       - name: Key entfernen
         if: always()
