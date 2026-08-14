@@ -2,6 +2,10 @@ name: ZweiCheck TestFlight
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/project.yml'
 
 permissions:
   contents: read
@@ -19,8 +23,6 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_PRIVATE_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_B64 }}
-      MAIN_PROFILE_NAME: ZweiCheck CI App Store
-      SHARE_PROFILE_NAME: ZweiCheck Share CI App Store
 
     steps:
       - name: Repository auschecken
@@ -45,145 +47,6 @@ jobs:
           printf '%s' "$ASC_PRIVATE_KEY_B64" | base64 --decode > "$KEY_PATH"
           chmod 600 "$KEY_PATH"
           grep -q "BEGIN PRIVATE KEY" "$KEY_PATH" || { echo "Der API-Key konnte nicht korrekt dekodiert werden."; exit 1; }
-
-      - name: Provisioning-Umgebung vorbereiten
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m venv "$RUNNER_TEMP/asc-venv"
-          "$RUNNER_TEMP/asc-venv/bin/pip" install --quiet pyjwt cryptography requests
-          openssl genrsa -out "$RUNNER_TEMP/ci-signing.key" 2048
-          openssl req -new \
-            -key "$RUNNER_TEMP/ci-signing.key" \
-            -out "$RUNNER_TEMP/ci-signing.csr" \
-            -subj "/CN=ZweiCheck GitHub CI/O=Kamilunavo/C=DE"
-
-      - name: Distribution-Zertifikat und App-Store-Profile erzeugen
-        shell: bash
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/asc-venv/bin/python" - <<'PY'
-          import base64, json, os, time, jwt, requests
-
-          temp = os.environ['RUNNER_TEMP']
-          key = open(f"{temp}/AuthKey_{os.environ['ASC_KEY_ID']}.p8", 'r', encoding='utf-8').read()
-          token = jwt.encode(
-              {'iss': os.environ['ASC_ISSUER_ID'], 'iat': int(time.time()), 'exp': int(time.time()) + 600, 'aud': 'appstoreconnect-v1'},
-              key,
-              algorithm='ES256',
-              headers={'kid': os.environ['ASC_KEY_ID'], 'typ': 'JWT'}
-          )
-          headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
-          base = 'https://api.appstoreconnect.apple.com/v1'
-
-          def require(response, expected, label):
-              if response.status_code != expected:
-                  raise SystemExit(f"{label} fehlgeschlagen: HTTP {response.status_code}\n{response.text[:3000]}")
-              return response.json() if response.content else None
-
-          cert_list = require(requests.get(base + '/certificates', headers=headers, params={'limit':'50'}, timeout=30), 200, 'Zertifikatsliste')
-          for cert in cert_list.get('data', []):
-              attrs = cert.get('attributes', {})
-              if attrs.get('certificateType') == 'IOS_DISTRIBUTION' and attrs.get('displayName') == 'Created via API':
-                  r = requests.delete(base + '/certificates/' + cert['id'], headers=headers, timeout=30)
-                  if r.status_code not in (204, 404):
-                      print(f"Warnung: altes CI-Distribution-Zertifikat {cert['id']} konnte nicht entfernt werden: HTTP {r.status_code}")
-
-          for profile_name in [os.environ['MAIN_PROFILE_NAME'], os.environ['SHARE_PROFILE_NAME']]:
-              old = require(requests.get(base + '/profiles', headers=headers, params={'filter[name]': profile_name, 'limit':'50'}, timeout=30), 200, f'Profil-Liste {profile_name}')
-              for profile in old.get('data', []):
-                  if profile.get('attributes', {}).get('name') == profile_name:
-                      r = requests.delete(base + '/profiles/' + profile['id'], headers=headers, timeout=30)
-                      if r.status_code not in (204, 404):
-                          print(f"Warnung: altes CI-Profil {profile['id']} konnte nicht entfernt werden: HTTP {r.status_code}")
-
-          csr = open(f'{temp}/ci-signing.csr', 'r', encoding='utf-8').read()
-          cert_payload = {
-              'data': {
-                  'type': 'certificates',
-                  'attributes': {'certificateType': 'IOS_DISTRIBUTION', 'csrContent': csr}
-              }
-          }
-          cert_resp = require(requests.post(base + '/certificates', headers=headers, json=cert_payload, timeout=30), 201, 'iOS-Distribution-Zertifikat')
-          cert = cert_resp['data']
-          cert_id = cert['id']
-          open(f'{temp}/ci-signing.cer', 'wb').write(base64.b64decode(cert['attributes']['certificateContent']))
-
-          resources = {'certificate_id': cert_id, 'profile_ids': []}
-          targets = [
-              ('de.kamilunavo.zweicheck', os.environ['MAIN_PROFILE_NAME'], 'main.mobileprovision'),
-              ('de.kamilunavo.zweicheck.share', os.environ['SHARE_PROFILE_NAME'], 'share.mobileprovision'),
-          ]
-
-          for identifier, profile_name, filename in targets:
-              bundle_resp = require(requests.get(base + '/bundleIds', headers=headers, params={'filter[identifier]': identifier, 'limit':'10'}, timeout=30), 200, f'Bundle-ID {identifier}')
-              exact = [b for b in bundle_resp.get('data', []) if b.get('attributes', {}).get('identifier') == identifier]
-              if len(exact) != 1:
-                  raise SystemExit(f'Bundle-ID {identifier} wurde nicht eindeutig gefunden (Treffer: {len(exact)}).')
-              bundle_id = exact[0]['id']
-              profile_payload = {
-                  'data': {
-                      'type': 'profiles',
-                      'attributes': {
-                          'name': profile_name,
-                          'profileType': 'IOS_APP_STORE'
-                      },
-                      'relationships': {
-                          'bundleId': {'data': {'type': 'bundleIds', 'id': bundle_id}},
-                          'certificates': {'data': [{'type': 'certificates', 'id': cert_id}]}
-                      }
-                  }
-              }
-              profile_resp = require(requests.post(base + '/profiles', headers=headers, json=profile_payload, timeout=30), 201, f'App-Store-Profil {identifier}')
-              profile = profile_resp['data']
-              resources['profile_ids'].append(profile['id'])
-              open(f'{temp}/{filename}', 'wb').write(base64.b64decode(profile['attributes']['profileContent']))
-
-          open(f'{temp}/apple-signing-resources.json', 'w', encoding='utf-8').write(json.dumps(resources))
-          print('Apple-Distribution-Signing für Haupt-App und Share Extension wurde erzeugt.')
-          PY
-
-      - name: Signatur lokal installieren
-        shell: bash
-        run: |
-          set -euo pipefail
-          KEYCHAIN="$RUNNER_TEMP/zweicheck-build.keychain-db"
-          KEYCHAIN_PASSWORD="zweicheck-ci-${GITHUB_RUN_ID}"
-          P12_PASSWORD="zweicheck-p12-${GITHUB_RUN_ID}"
-
-          openssl x509 -inform DER -in "$RUNNER_TEMP/ci-signing.cer" -out "$RUNNER_TEMP/ci-signing.pem"
-          openssl pkcs12 -export \
-            -legacy \
-            -macalg sha1 \
-            -out "$RUNNER_TEMP/ci-signing.p12" \
-            -inkey "$RUNNER_TEMP/ci-signing.key" \
-            -in "$RUNNER_TEMP/ci-signing.pem" \
-            -passout "pass:$P12_PASSWORD"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security list-keychains -d user -s "$KEYCHAIN"
-          security default-keychain -d user -s "$KEYCHAIN"
-          security import "$RUNNER_TEMP/ci-signing.p12" \
-            -k "$KEYCHAIN" \
-            -P "$P12_PASSWORD" \
-            -T /usr/bin/codesign \
-            -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
-          security find-identity -v -p codesigning "$KEYCHAIN"
-
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          mkdir -p "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
-
-          for pair in "main:$RUNNER_TEMP/main.mobileprovision" "share:$RUNNER_TEMP/share.mobileprovision"; do
-            label="${pair%%:*}"
-            profile="${pair#*:}"
-            security cms -D -i "$profile" > "$RUNNER_TEMP/${label}-profile.plist"
-            uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/${label}-profile.plist")
-            cp "$profile" "$HOME/Library/MobileDevice/Provisioning Profiles/${uuid}.mobileprovision"
-            cp "$profile" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/${uuid}.mobileprovision"
-          done
 
       - name: Build-Werkzeuge installieren
         run: brew install xcodegen librsvg
@@ -213,18 +76,55 @@ jobs:
         working-directory: ios
         run: xcodegen generate
 
+      - name: Signing-Konfiguration prüfen
+        working-directory: ios
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS=$(xcodebuild \
+            -project ZweiCheck.xcodeproj \
+            -scheme ZweiCheck \
+            -configuration Release \
+            -showBuildSettings)
+          echo "$SETTINGS" | grep -E 'CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER' || true
+          if echo "$SETTINGS" | grep -q 'CODE_SIGN_STYLE = Manual'; then
+            echo "Release-Konfiguration ist noch auf manuelle Signierung gestellt."
+            exit 1
+          fi
+
       - name: Release archivieren
         working-directory: ios
         shell: bash
         run: |
           set -euo pipefail
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
           xcodebuild \
             -project ZweiCheck.xcodeproj \
             -scheme ZweiCheck \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/ZweiCheck.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             archive
+
+      - name: Archiv-Signaturen prüfen
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/ZweiCheck.xcarchive/Products/Applications/ZweiCheck.app"
+          SHARE="$APP/PlugIns/ZweiCheckShare.appex"
+
+          test -d "$APP"
+          test -d "$SHARE"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --verify --strict --verbose=2 "$SHARE"
+          echo "Haupt-App Signatur:"
+          codesign -dvv "$APP" 2>&1 | grep -E 'Identifier=|Authority=|TeamIdentifier=' || true
+          echo "Share Extension Signatur:"
+          codesign -dvv "$SHARE" 2>&1 | grep -E 'Identifier=|Authority=|TeamIdentifier=' || true
 
       - name: Export-Optionen erstellen
         shell: bash
@@ -239,18 +139,9 @@ jobs:
             <key>destination</key>
             <string>upload</string>
             <key>signingStyle</key>
-            <string>manual</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
+            <string>automatic</string>
             <key>teamID</key>
-            <string>TKG684N5GL</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>de.kamilunavo.zweicheck</key>
-              <string>$MAIN_PROFILE_NAME</string>
-              <key>de.kamilunavo.zweicheck.share</key>
-              <string>$SHARE_PROFILE_NAME</string>
-            </dict>
+            <string>$TEAM_ID</string>
             <key>uploadSymbols</key>
             <true/>
             <key>manageAppVersionAndBuildNumber</key>
@@ -259,7 +150,7 @@ jobs:
           </plist>
           PLIST
 
-      - name: Zu App Store Connect / TestFlight hochladen
+      - name: Mit Apple Cloud Signing zu TestFlight hochladen
         shell: bash
         run: |
           set -euo pipefail
@@ -269,36 +160,12 @@ jobs:
             -archivePath "$RUNNER_TEMP/ZweiCheck.xcarchive" \
             -exportPath "$RUNNER_TEMP/TestFlightExport" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
             -authenticationKeyPath "$KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
-      - name: Temporäre Apple-Signing-Ressourcen entfernen
+      - name: API Key entfernen
         if: always()
         shell: bash
-        run: |
-          set +e
-          if [ -f "$RUNNER_TEMP/apple-signing-resources.json" ] && [ -x "$RUNNER_TEMP/asc-venv/bin/python" ]; then
-            "$RUNNER_TEMP/asc-venv/bin/python" - <<'PY'
-          import json, os, time, jwt, requests
-          temp = os.environ['RUNNER_TEMP']
-          try:
-              resources = json.load(open(f'{temp}/apple-signing-resources.json', encoding='utf-8'))
-              key = open(f"{temp}/AuthKey_{os.environ['ASC_KEY_ID']}.p8", 'r', encoding='utf-8').read()
-              token = jwt.encode(
-                  {'iss': os.environ['ASC_ISSUER_ID'], 'iat': int(time.time()), 'exp': int(time.time()) + 600, 'aud': 'appstoreconnect-v1'},
-                  key, algorithm='ES256', headers={'kid': os.environ['ASC_KEY_ID'], 'typ': 'JWT'}
-              )
-              headers = {'Authorization': f'Bearer {token}'}
-              base = 'https://api.appstoreconnect.apple.com/v1'
-              for profile_id in resources.get('profile_ids', []):
-                  requests.delete(base + '/profiles/' + profile_id, headers=headers, timeout=30)
-              cert_id = resources.get('certificate_id')
-              if cert_id:
-                  requests.delete(base + '/certificates/' + cert_id, headers=headers, timeout=30)
-          except Exception as e:
-              print('Cleanup-Warnung:', e)
-          PY
-          fi
-          rm -f "$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8" "$RUNNER_TEMP/ci-signing.key" "$RUNNER_TEMP/ci-signing.csr" "$RUNNER_TEMP/ci-signing.cer" "$RUNNER_TEMP/ci-signing.pem" "$RUNNER_TEMP/ci-signing.p12"
-          security delete-keychain "$RUNNER_TEMP/zweicheck-build.keychain-db" 2>/dev/null || true
+        run: rm -f "$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
