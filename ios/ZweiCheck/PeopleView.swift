@@ -69,10 +69,24 @@ struct PeopleView: View {
             }
 
             Section("Person einladen") {
+                if model.user?.emailVerified != true {
+                    Label("E-Mail-Adresse noch nicht bestätigt", systemImage: "envelope.badge")
+                        .font(.headline)
+                    Text("Bestätige zuerst deine E-Mail-Adresse. Danach kannst du Vertrauenspersonen einladen oder Einladungscodes annehmen.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("Bestätigungs-E-Mail erneut senden") {
+                        Task { await model.resendVerification() }
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(model.isBusy)
+                }
+
                 TextField("E-Mail optional", text: $inviteEmail)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .disabled(model.user?.emailVerified != true || model.isBusy)
                 Text("Ohne E-Mail erzeugt ZweiCheck einen Code, den du selbst teilen kannst.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -99,6 +113,7 @@ struct PeopleView: View {
                 TextField("Code", text: $inviteCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
+                    .disabled(model.user?.emailVerified != true || model.isBusy)
                 Button("Code annehmen") {
                     let code = inviteCode
                     Task {
