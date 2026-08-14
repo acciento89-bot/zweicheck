@@ -23,14 +23,19 @@ struct AppShellView: View {
             if let url = NativePushManager.consumePendingNotificationURL() {
                 model.handleIncomingURL(url)
             }
+            applyPendingDestination()
         }
-        .onChange(of: model.destination) { _, destination in
-            guard let destination else { return }
-            switch destination {
-            case .checks: selectedTab = 1
-            case .people: selectedTab = 2
-            }
-            model.destination = nil
+        .onChange(of: model.destination) { _, _ in
+            applyPendingDestination()
         }
+    }
+
+    private func applyPendingDestination() {
+        guard let destination = model.destination else { return }
+        switch destination {
+        case .checks: selectedTab = 1
+        case .people: selectedTab = 2
+        }
+        model.destination = nil
     }
 }

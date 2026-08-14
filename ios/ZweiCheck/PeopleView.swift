@@ -136,8 +136,16 @@ struct PeopleView: View {
         .refreshable { await model.refreshPeople() }
         .task(id: model.pendingInviteCode) {
             guard let code = model.pendingInviteCode else { return }
-            inviteCode = code
             model.pendingInviteCode = nil
+            inviteCode = code
+
+            guard model.user?.emailVerified == true else {
+                model.message = "Bestätige zuerst deine E-Mail-Adresse. Der Einladungscode ist bereits übernommen und kann danach angenommen werden."
+                return
+            }
+
+            await model.accept(code: code)
+            inviteCode = ""
         }
     }
 
