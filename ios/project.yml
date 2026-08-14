@@ -22,7 +22,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: de.kamilunavo.zweicheck
         PRODUCT_NAME: ZweiCheck
         MARKETING_VERSION: 1.0.0
-        CURRENT_PROJECT_VERSION: 10
+        CURRENT_PROJECT_VERSION: 11
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: ZweiCheck
         INFOPLIST_KEY_CFBundleIconName: AppIcon
@@ -68,7 +68,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: de.kamilunavo.zweicheck.share
         PRODUCT_NAME: ZweiCheckShare
         MARKETING_VERSION: 1.0.0
-        CURRENT_PROJECT_VERSION: 10
+        CURRENT_PROJECT_VERSION: 11
         CODE_SIGN_ENTITLEMENTS: ZweiCheckShare/ZweiCheckShare.entitlements
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
