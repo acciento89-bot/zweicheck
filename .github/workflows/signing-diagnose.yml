@@ -30,11 +30,11 @@ jobs:
         run: |
           python3 -m venv "$RUNNER_TEMP/asc-venv"
           "$RUNNER_TEMP/asc-venv/bin/pip" install --quiet pyjwt cryptography requests
-      - name: Apple Provisioning API prüfen
+      - name: Apple Provisioning und Build Uploads prüfen
         shell: bash
         run: |
           "$RUNNER_TEMP/asc-venv/bin/python" - <<'PY'
-          import os, time, jwt, requests
+          import json, os, time, jwt, requests
           key = open(os.environ['RUNNER_TEMP'] + '/AuthKey.p8', 'r', encoding='utf-8').read()
           token = jwt.encode(
               {'iss': os.environ['ASC_ISSUER_ID'], 'iat': int(time.time()), 'exp': int(time.time()) + 600, 'aud': 'appstoreconnect-v1'},
@@ -44,6 +44,7 @@ jobs:
           )
           headers = {'Authorization': f'Bearer {token}'}
           base = 'https://api.appstoreconnect.apple.com/v1'
+
           for identifier in ['de.kamilunavo.zweicheck', 'de.kamilunavo.zweicheck.share']:
               r = requests.get(base + '/bundleIds', headers=headers, params={
                   'filter[identifier]': identifier,
@@ -52,7 +53,7 @@ jobs:
               }, timeout=30)
               print(f'BUNDLE {identifier}: HTTP {r.status_code}')
               if r.status_code != 200:
-                  print(r.text[:1500])
+                  print(r.text[:3000])
                   continue
               payload = r.json()
               data = payload.get('data', [])
@@ -68,22 +69,59 @@ jobs:
                       profiles.append((a.get('name'), a.get('profileType'), a.get('profileState')))
               print('  capabilities=' + ','.join(sorted(set(filter(None,caps)))))
               print('  profiles=' + repr(profiles))
-          r = requests.get(base + '/devices', headers=headers, params={'limit':'10'}, timeout=30)
-          print(f'DEVICES: HTTP {r.status_code}')
-          if r.status_code == 200:
-              print('  count=' + str(len(r.json().get('data', []))))
-          else:
-              print(r.text[:1500])
-          r = requests.get(base + '/certificates', headers=headers, params={'limit':'20'}, timeout=30)
+
+          r = requests.get(base + '/certificates', headers=headers, params={'limit':'50'}, timeout=30)
           print(f'CERTIFICATES: HTTP {r.status_code}')
           if r.status_code == 200:
               certs=[]
               for c in r.json().get('data', []):
                   a=c.get('attributes',{})
-                  certs.append((a.get('certificateType'), a.get('displayName'), a.get('expirationDate')))
+                  certs.append((a.get('certificateType'), a.get('displayName'), a.get('activated'), a.get('expirationDate')))
               print('  ' + repr(certs))
           else:
-              print(r.text[:1500])
+              print(r.text[:3000])
+
+          app_resp = requests.get(base + '/apps', headers=headers, params={
+              'filter[bundleId]': 'de.kamilunavo.zweicheck',
+              'limit': '10'
+          }, timeout=30)
+          print(f'APP LOOKUP: HTTP {app_resp.status_code}')
+          if app_resp.status_code != 200:
+              print(app_resp.text[:5000])
+              raise SystemExit(1)
+          apps = app_resp.json().get('data', [])
+          exact = [a for a in apps if a.get('attributes',{}).get('bundleId') == 'de.kamilunavo.zweicheck']
+          if len(exact) != 1:
+              print('App nicht eindeutig gefunden:', len(exact))
+              raise SystemExit(1)
+          app_id = exact[0]['id']
+          print('APP ID:', app_id)
+
+          uploads = requests.get(base + f'/apps/{app_id}/buildUploads', headers=headers, params={
+              'filter[platform]': 'IOS',
+              'fields[buildUploads]': 'cfBundleShortVersionString,cfBundleVersion,createdDate,state,platform,uploadedDate,build',
+              'include': 'build',
+              'fields[builds]': 'version,uploadedDate,processingState,usesNonExemptEncryption,minOsVersion',
+              'sort': '-uploadedDate',
+              'limit': '10'
+          }, timeout=30)
+          print(f'BUILD UPLOADS: HTTP {uploads.status_code}')
+          if uploads.status_code != 200:
+              print(uploads.text[:10000])
+              raise SystemExit(1)
+
+          payload = uploads.json()
+          included = {i.get('id'): i for i in payload.get('included', []) if i.get('type') == 'builds'}
+          for upload in payload.get('data', []):
+              a = upload.get('attributes', {})
+              state = a.get('state')
+              print('\nUPLOAD', upload.get('id'))
+              print('  version=', a.get('cfBundleShortVersionString'), 'build=', a.get('cfBundleVersion'), 'uploaded=', a.get('uploadedDate'))
+              print('  state=', json.dumps(state, ensure_ascii=False, indent=2))
+              rel = upload.get('relationships',{}).get('build',{}).get('data')
+              if rel and rel.get('id') in included:
+                  ba = included[rel['id']].get('attributes',{})
+                  print('  build.processingState=', ba.get('processingState'), 'build.version=', ba.get('version'), 'minOS=', ba.get('minOsVersion'))
           PY
       - name: Key entfernen
         if: always()
