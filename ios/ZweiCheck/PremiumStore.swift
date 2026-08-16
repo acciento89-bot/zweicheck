@@ -7,25 +7,29 @@ import StoreKit
 final class PremiumStore {
     static let familyMonthlyProductID = "de.kamilunavo.zweicheck.premium.family.monthly"
     static let familyYearlyProductID = "de.kamilunavo.zweicheck.premium.family.yearly"
-    static let familyMonthlyTargetPrice = "4,99 €"
-    static let familyYearlyTargetPrice = "39,99 €"
 
     var monthlyProduct: Product?
     var yearlyProduct: Product?
     var isPremiumFamily = false
     var activeProductID: String?
     var isLoading = false
+    var isLoadingProducts = false
+    var productLoadError: String?
     var message: String?
 
-    // ZweiCheck ist zum Release nur für Deutschland freigeschaltet. TestFlight/Sandbox kann
-    // vorübergehend veraltete Fremdwährungs-Metadaten cachen, obwohl Apples Kaufdialog bereits
-    // den korrekten EUR-Preis verwendet. Solche Werte zeigen wir nicht in der Tarifkarte.
+    var productsAreReady: Bool {
+        monthlyProduct != nil && yearlyProduct != nil
+    }
+
+    // Preise werden ausschließlich aus StoreKit übernommen. So zeigt ZweiCheck immer
+    // den Preis und die Währung des aktuellen App-Store-Storefronts an und bietet
+    // niemals eine nicht geladene Subscription mit einem hart codierten Preis an.
     var monthlyPriceText: String {
-        euroDisplayPrice(for: monthlyProduct, fallback: Self.familyMonthlyTargetPrice)
+        monthlyProduct?.displayPrice ?? "—"
     }
 
     var annualPriceText: String {
-        euroDisplayPrice(for: yearlyProduct, fallback: Self.familyYearlyTargetPrice)
+        yearlyProduct?.displayPrice ?? "—"
     }
 
     var activePlanLabel: String {
@@ -40,23 +44,43 @@ final class PremiumStore {
     private var didStart = false
 
     func start() async {
-        guard !didStart else {
-            await loadProducts()
-            await refreshEntitlements()
-            return
+        if !didStart {
+            didStart = true
+            startTransactionListener()
         }
-        didStart = true
-        startTransactionListener()
-        await loadProducts()
+
+        await loadProducts(showMessage: false)
         await refreshEntitlements()
     }
 
+    func reloadProducts() async {
+        await loadProducts(showMessage: true)
+    }
+
     func purchaseFamilyMonthly() async {
-        await purchase(product: monthlyProduct, fallbackMessage: "ZweiCheck Premium Familie kostet 4,99 € pro Monat. Das Monatsabo muss in App Store Connect für den Verkauf freigeschaltet sein.")
+        if monthlyProduct == nil {
+            await loadProducts(showMessage: false)
+        }
+
+        guard let product = monthlyProduct else {
+            message = productLoadError ?? "Das Monatsabo konnte gerade nicht vom App Store geladen werden. Bitte versuche es erneut."
+            return
+        }
+
+        await purchase(product: product)
     }
 
     func purchaseFamilyYearly() async {
-        await purchase(product: yearlyProduct, fallbackMessage: "ZweiCheck Premium Familie kostet 39,99 € pro Jahr. Das Jahresabo muss in App Store Connect für den Verkauf freigeschaltet sein.")
+        if yearlyProduct == nil {
+            await loadProducts(showMessage: false)
+        }
+
+        guard let product = yearlyProduct else {
+            message = productLoadError ?? "Das Jahresabo konnte gerade nicht vom App Store geladen werden. Bitte versuche es erneut."
+            return
+        }
+
+        await purchase(product: product)
     }
 
     func restorePurchases() async {
@@ -87,18 +111,7 @@ final class PremiumStore {
         isPremiumFamily = activeID != nil
     }
 
-    private func euroDisplayPrice(for product: Product?, fallback: String) -> String {
-        guard let displayPrice = product?.displayPrice else { return fallback }
-        let normalized = displayPrice.uppercased()
-        return normalized.contains("€") || normalized.contains("EUR") ? displayPrice : fallback
-    }
-
-    private func purchase(product: Product?, fallbackMessage: String) async {
-        guard let product else {
-            message = fallbackMessage
-            return
-        }
-
+    private func purchase(product: Product) async {
         isLoading = true
         defer { isLoading = false }
 
@@ -125,14 +138,34 @@ final class PremiumStore {
         }
     }
 
-    private func loadProducts() async {
+    private func loadProducts(showMessage: Bool) async {
+        guard !isLoadingProducts else { return }
+
+        isLoadingProducts = true
+        defer { isLoadingProducts = false }
+
         do {
-            let products = try await Product.products(for: [Self.familyMonthlyProductID, Self.familyYearlyProductID])
+            let requestedIDs = [Self.familyMonthlyProductID, Self.familyYearlyProductID]
+            let products = try await Product.products(for: requestedIDs)
+
             monthlyProduct = products.first(where: { $0.id == Self.familyMonthlyProductID })
             yearlyProduct = products.first(where: { $0.id == Self.familyYearlyProductID })
+
+            if productsAreReady {
+                productLoadError = nil
+            } else {
+                productLoadError = "Die Premium-Abos konnten vom App Store nicht vollständig geladen werden. Bitte versuche es erneut."
+                if showMessage {
+                    message = productLoadError
+                }
+            }
         } catch {
             monthlyProduct = nil
             yearlyProduct = nil
+            productLoadError = "Die Premium-Abos konnten nicht geladen werden. Bitte prüfe deine Internetverbindung und versuche es erneut."
+            if showMessage {
+                message = productLoadError
+            }
         }
     }
 
