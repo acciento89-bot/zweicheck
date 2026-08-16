@@ -149,6 +149,41 @@ struct AccountView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
                     .background(AppTheme.green.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+            } else if model.premium.isLoadingProducts {
+                HStack(spacing: 12) {
+                    ProgressView()
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Abos werden geladen …")
+                            .font(.headline)
+                        Text("ZweiCheck lädt Preise und Verfügbarkeit direkt aus dem App Store.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 17))
+            } else if !model.premium.productsAreReady {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Abos konnten nicht geladen werden", systemImage: "exclamationmark.triangle.fill")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.orange)
+
+                    Text("Bitte prüfe deine Internetverbindung und lade die Angebote erneut aus dem App Store.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Button("Abos erneut laden") {
+                        Task {
+                            await model.premium.reloadProducts()
+                            forwardPremiumMessage()
+                        }
+                    }
+                    .buttonStyle(SeniorSecondaryButtonStyle())
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 17))
             } else {
                 VStack(spacing: 12) {
                     subscriptionChoice(
@@ -180,7 +215,7 @@ struct AccountView: View {
                 }
             }
             .buttonStyle(SeniorSecondaryButtonStyle())
-            .disabled(model.premium.isLoading)
+            .disabled(model.premium.isLoading || model.premium.isLoadingProducts)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text("Die Zahlung wird über deine Apple-ID abgerechnet. Das Abo verlängert sich automatisch um den gewählten Zeitraum, sofern es nicht mindestens 24 Stunden vor Ablauf gekündigt wird.")
@@ -255,7 +290,7 @@ struct AccountView: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(model.premium.isLoading)
+        .disabled(model.premium.isLoading || model.premium.isLoadingProducts || !model.premium.productsAreReady)
     }
 
     private func premiumFeature(_ text: String, symbol: String) -> some View {
