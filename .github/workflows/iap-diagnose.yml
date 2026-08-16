@@ -50,10 +50,11 @@ jobs:
               print(f'GET {path}: HTTP {r.status_code}')
               if r.status_code != 200:
                   print(r.text[:8000])
-                  raise SystemExit(1)
+                  return None
               return r.json()
 
-          apps = get('/apps', **{'filter[bundleId]':'de.kamilunavo.zweicheck','limit':'10'}).get('data', [])
+          apps_payload = get('/apps', **{'filter[bundleId]':'de.kamilunavo.zweicheck','limit':'10'})
+          apps = (apps_payload or {}).get('data', [])
           exact = [a for a in apps if a.get('attributes',{}).get('bundleId') == 'de.kamilunavo.zweicheck']
           if len(exact) != 1:
               raise SystemExit(f'App nicht eindeutig gefunden: {len(exact)}')
@@ -70,9 +71,7 @@ jobs:
                   'limit[subscriptions]':'50',
                   'limit[subscriptionGroupLocalizations]':'50'
               }
-          )
-          print('\nSUBSCRIPTION GROUPS RAW')
-          print(json.dumps(groups, ensure_ascii=False, indent=2)[:50000])
+          ) or {}
 
           subs = [i for i in groups.get('included', []) if i.get('type') == 'subscriptions']
           print('\nSUBSCRIPTIONS SUMMARY')
@@ -94,11 +93,24 @@ jobs:
                   **{
                     'fields[subscriptions]':'name,productId,familySharable,state,subscriptionPeriod,reviewNote,groupLevel,subscriptionLocalizations,appStoreReviewScreenshot,subscriptionAvailability',
                     'fields[subscriptionLocalizations]':'name,locale,description,state,subscription',
-                    'fields[subscriptionAvailabilities]':'availableInNewTerritories,availableTerritories,subscription'
+                    'fields[subscriptionAvailabilities]':'availableInNewTerritories,availableTerritories'
                   }
               )
-              print('DETAIL', a.get('productId'))
-              print(json.dumps(detail, ensure_ascii=False, indent=2)[:30000])
+              if detail:
+                  print('DETAIL', a.get('productId'))
+                  print(json.dumps(detail, ensure_ascii=False, indent=2)[:30000])
+
+              availability = get(f'/subscriptions/{sid}/subscriptionAvailability',
+                  include='availableTerritories',
+                  **{
+                    'fields[subscriptionAvailabilities]':'availableInNewTerritories,availableTerritories',
+                    'fields[territories]':'currency',
+                    'limit[availableTerritories]':'50'
+                  }
+              )
+              if availability:
+                  territories = [i.get('id') for i in availability.get('included', []) if i.get('type') == 'territories']
+                  print('AVAILABILITY', a.get('productId'), 'territories=', territories)
           PY
       - name: Key entfernen
         if: always()
