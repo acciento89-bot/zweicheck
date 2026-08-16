@@ -85,7 +85,7 @@ struct OnboardingView: View {
 
             pageDots(total: pages.count + 1, selected: page)
 
-            Button(page == pages.count - 1 ? "Tarife ansehen" : "Weiter") {
+            Button(page == pages.count - 1 ? "Weiter" : "Weiter") {
                 withAnimation(.easeInOut(duration: 0.22)) { page += 1 }
             }
             .buttonStyle(SeniorPrimaryButtonStyle())
@@ -101,18 +101,16 @@ struct OnboardingView: View {
                     Text("Du entscheidest")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.navy)
-                    Text("Die Grundfunktion bleibt kostenlos. Premium Familie ergänzt die automatischen Sicherheitsfunktionen.")
+                    Text("Die Grundfunktion bleibt kostenlos. Premium Familie ist optional und kann nach der Anmeldung im Bereich „Konto“ aktiviert werden.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                 }
 
-                planCard(
+                featureCard(
                     title: "Kostenlos",
-                    price: "0 €",
-                    subtitle: "Für den einfachen zweiten Blick",
+                    subtitle: "Alles für den einfachen zweiten Blick",
+                    symbol: "checkmark.shield.fill",
                     accent: AppTheme.navy,
-                    highlighted: false,
-                    badge: nil,
                     features: [
                         "Prüfanfragen senden und beantworten",
                         "1 Bild pro Prüfung",
@@ -121,27 +119,15 @@ struct OnboardingView: View {
                     ]
                 )
 
-                planCard(
+                featureCard(
                     title: "Premium Familie",
-                    price: "4,99 € / Monat",
-                    subtitle: "Flexibel monatlich",
-                    accent: AppTheme.navy,
-                    highlighted: false,
-                    badge: "MONATLICH",
-                    features: premiumFeatures
-                )
-
-                planCard(
-                    title: "Premium Familie",
-                    price: "39,99 € / Jahr",
-                    subtitle: "Günstiger als 12 einzelne Monatszahlungen",
+                    subtitle: "Optional – später unter „Konto“ aktivierbar",
+                    symbol: "person.3.fill",
                     accent: AppTheme.tealBright,
-                    highlighted: true,
-                    badge: "BESTE WAHL",
                     features: premiumFeatures
                 )
 
-                Text("Premium kannst du jederzeit später im Bereich „Konto“ aktivieren. Der Kauf und die Verwaltung des Abos laufen sicher über den App Store.")
+                Label("Premium-Angebote, Preise und Käufe werden nach der Anmeldung direkt aus dem App Store geladen.", systemImage: "apple.logo")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
@@ -164,35 +150,26 @@ struct OnboardingView: View {
         ]
     }
 
-    private func planCard(
+    private func featureCard(
         title: String,
-        price: String,
         subtitle: String,
+        symbol: String,
         accent: Color,
-        highlighted: Bool,
-        badge: String?,
         features: [String]
     ) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                    .frame(width: 46, height: 46)
+                    .background(accent, in: RoundedRectangle(cornerRadius: 13))
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.title2.bold())
                     Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                 }
-                Spacer()
-                if let badge {
-                    Text(badge)
-                        .font(.caption.bold())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(highlighted ? AppTheme.teal : AppTheme.navySolid, in: Capsule())
-                }
             }
-
-            Text(price)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(accent)
 
             VStack(alignment: .leading, spacing: 9) {
                 ForEach(features, id: \.self) { feature in
@@ -206,9 +183,8 @@ struct OnboardingView: View {
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
         .overlay {
             RoundedRectangle(cornerRadius: 20)
-                .stroke(highlighted ? AppTheme.tealBright : AppTheme.separator.opacity(0.9), lineWidth: highlighted ? 2.5 : 1)
+                .stroke(AppTheme.separator.opacity(0.9), lineWidth: 1)
         }
-        .shadow(color: highlighted ? AppTheme.teal.opacity(0.14) : .clear, radius: 14, y: 7)
     }
 
     private func pageDots(total: Int, selected: Int) -> some View {
