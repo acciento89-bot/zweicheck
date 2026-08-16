@@ -1,0 +1,105 @@
+name: ZweiCheck IAP Diagnose
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/iap-diagnose.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: macos-26
+    env:
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_PRIVATE_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: API Key bereitstellen
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$ASC_PRIVATE_KEY_B64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+      - name: Python-Umgebung
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/asc-venv"
+          "$RUNNER_TEMP/asc-venv/bin/pip" install --quiet pyjwt cryptography requests
+      - name: Abos in App Store Connect prüfen
+        shell: bash
+        run: |
+          "$RUNNER_TEMP/asc-venv/bin/python" - <<'PY'
+          import json, os, time, jwt, requests
+          key = open(os.environ['RUNNER_TEMP'] + '/AuthKey.p8', 'r', encoding='utf-8').read()
+          token = jwt.encode(
+              {'iss': os.environ['ASC_ISSUER_ID'], 'iat': int(time.time()), 'exp': int(time.time()) + 600, 'aud': 'appstoreconnect-v1'},
+              key,
+              algorithm='ES256',
+              headers={'kid': os.environ['ASC_KEY_ID'], 'typ': 'JWT'}
+          )
+          headers = {'Authorization': f'Bearer {token}'}
+          base = 'https://api.appstoreconnect.apple.com/v1'
+
+          def get(path, **params):
+              r = requests.get(base + path, headers=headers, params=params, timeout=30)
+              print(f'GET {path}: HTTP {r.status_code}')
+              if r.status_code != 200:
+                  print(r.text[:8000])
+                  raise SystemExit(1)
+              return r.json()
+
+          apps = get('/apps', **{'filter[bundleId]':'de.kamilunavo.zweicheck','limit':'10'}).get('data', [])
+          exact = [a for a in apps if a.get('attributes',{}).get('bundleId') == 'de.kamilunavo.zweicheck']
+          if len(exact) != 1:
+              raise SystemExit(f'App nicht eindeutig gefunden: {len(exact)}')
+          app_id = exact[0]['id']
+          print('APP ID', app_id)
+
+          groups = get(f'/apps/{app_id}/subscriptionGroups',
+              include='subscriptions,subscriptionGroupLocalizations',
+              **{
+                  'fields[subscriptionGroups]':'referenceName,subscriptions,subscriptionGroupLocalizations',
+                  'fields[subscriptions]':'name,productId,familySharable,state,subscriptionPeriod,reviewNote,groupLevel,subscriptionLocalizations,appStoreReviewScreenshot,subscriptionAvailability',
+                  'fields[subscriptionGroupLocalizations]':'name,customAppName,locale,state,subscriptionGroup',
+                  'limit':'50',
+                  'limit[subscriptions]':'50',
+                  'limit[subscriptionGroupLocalizations]':'50'
+              }
+          )
+          print('\nSUBSCRIPTION GROUPS RAW')
+          print(json.dumps(groups, ensure_ascii=False, indent=2)[:50000])
+
+          subs = [i for i in groups.get('included', []) if i.get('type') == 'subscriptions']
+          print('\nSUBSCRIPTIONS SUMMARY')
+          for sub in subs:
+              a = sub.get('attributes', {})
+              print(json.dumps({
+                  'id': sub.get('id'),
+                  'name': a.get('name'),
+                  'productId': a.get('productId'),
+                  'state': a.get('state'),
+                  'period': a.get('subscriptionPeriod'),
+                  'familySharable': a.get('familySharable'),
+                  'reviewNote': a.get('reviewNote')
+              }, ensure_ascii=False))
+
+              sid = sub.get('id')
+              detail = get(f'/subscriptions/{sid}',
+                  include='subscriptionLocalizations,appStoreReviewScreenshot,subscriptionAvailability',
+                  **{
+                    'fields[subscriptions]':'name,productId,familySharable,state,subscriptionPeriod,reviewNote,groupLevel,subscriptionLocalizations,appStoreReviewScreenshot,subscriptionAvailability',
+                    'fields[subscriptionLocalizations]':'name,locale,description,state,subscription',
+                    'fields[subscriptionAvailabilities]':'availableInNewTerritories,availableTerritories,subscription'
+                  }
+              )
+              print('DETAIL', a.get('productId'))
+              print(json.dumps(detail, ensure_ascii=False, indent=2)[:30000])
+          PY
+      - name: Key entfernen
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
