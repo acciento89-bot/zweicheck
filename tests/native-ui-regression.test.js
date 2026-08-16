@@ -50,22 +50,26 @@ test('first launch onboarding explains the full ZweiCheck flow and can be reopen
   assert.match(account, /Einführung noch einmal ansehen/);
 });
 
-test('Premium Family is clearly differentiated from the free plan and supports both billing periods', () => {
+test('onboarding does not present non-interactive price cards', () => {
+  assert.doesNotMatch(onboarding, /4,99 €/);
+  assert.doesNotMatch(onboarding, /39,99 €/);
+  assert.match(onboarding, /Premium-Angebote, Preise und Käufe werden nach der Anmeldung direkt aus dem App Store geladen/);
+  assert.match(onboarding, /Kostenlos starten/);
+});
+
+test('Premium Family loads StoreKit products before offering purchase buttons', () => {
   assert.match(premium, /familyMonthlyProductID = "de\.kamilunavo\.zweicheck\.premium\.family\.monthly"/);
   assert.match(premium, /familyYearlyProductID = "de\.kamilunavo\.zweicheck\.premium\.family\.yearly"/);
-  assert.match(premium, /familyMonthlyTargetPrice = "4,99 €"/);
-  assert.match(premium, /familyYearlyTargetPrice = "39,99 €"/);
-  assert.match(premium, /euroDisplayPrice\(for: monthlyProduct/);
-  assert.match(premium, /normalized\.contains\("€"\) \|\| normalized\.contains\("EUR"\)/);
-  assert.match(onboarding, /4,99 € \/ Monat/);
-  assert.match(onboarding, /39,99 € \/ Jahr/);
-  assert.match(onboarding, /BESTE WAHL/);
-  assert.match(flow, /imageLimit: Int \{ model\.premium\.isPremiumFamily \? 3 : 1 \}/);
-  assert.match(flow, /zweite Vertrauensperson fragen/);
+  assert.match(premium, /Product\.products\(for:/);
+  assert.match(premium, /productsAreReady/);
+  assert.match(premium, /monthlyProduct\?\.displayPrice \?\? "—"/);
+  assert.match(premium, /yearlyProduct\?\.displayPrice \?\? "—"/);
+  assert.match(account, /Abos werden geladen/);
+  assert.match(account, /Abos konnten nicht geladen werden/);
+  assert.match(account, /Abos erneut laden/);
   assert.match(account, /purchaseFamilyMonthly/);
   assert.match(account, /purchaseFamilyYearly/);
-  assert.match(account, /Bis zu 3 Bilder pro Prüfung statt 1/);
-  assert.match(account, /Automatische Erinnerung nach 5–120 Minuten/);
+  assert.match(flow, /imageLimit: Int \{ model\.premium\.isPremiumFamily \? 3 : 1 \}/);
   assert.match(account, /Nutzungsbedingungen/);
 });
 
@@ -86,8 +90,8 @@ test('review actions use distinct ZweiCheck web colors', () => {
   assert.match(checks, /case \.callMe: \.navy/);
 });
 
-test('native release build number is 10 for app and share extension', () => {
-  const matches = project.match(/CURRENT_PROJECT_VERSION: 10/g) || [];
+test('native release build number is 13 for app and share extension', () => {
+  const matches = project.match(/CURRENT_PROJECT_VERSION: 13/g) || [];
   assert.equal(matches.length, 2);
   assert.match(project, /CFBundleShortVersionString: \$\(MARKETING_VERSION\)/);
   assert.match(project, /CFBundleVersion: \$\(CURRENT_PROJECT_VERSION\)/);
