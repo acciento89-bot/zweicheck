@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ZweiCheck">
+  <meta name="apple-itunes-app" content="app-id=6800781224">
   <meta name="format-detection" content="telephone=no">
   <meta name="zweicheck-build" content="release-1.0.0">
   <meta name="zweicheck-ux" content="senior-first-v1">
@@ -35,5 +36,41 @@
   <script src="/trust-routing.js?v=3" defer></script>
   <script src="/escalation-client.js?v=4" defer></script>
   <script src="/account-client.js?v=2" defer></script>
+  <script>
+    (() => {
+      const root = document.querySelector('#app');
+      if (!root) return;
+
+      const addAppStoreBadge = () => {
+        const brand = root.querySelector('.auth-brand');
+        if (!brand || brand.querySelector('[data-app-store-badge]')) return;
+
+        const link = document.createElement('a');
+        link.href = 'https://apps.apple.com/app/zweicheck/id6800781224';
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        link.setAttribute('data-app-store-badge', 'true');
+        link.setAttribute('aria-label', 'ZweiCheck im App Store laden');
+        link.style.display = 'inline-block';
+        link.style.marginTop = '18px';
+        link.style.lineHeight = '0';
+
+        const badge = document.createElement('img');
+        badge.src = 'https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/de-de?size=250x83';
+        badge.alt = 'Laden im App Store';
+        badge.width = 170;
+        badge.height = 56;
+        badge.style.display = 'block';
+        badge.style.width = '170px';
+        badge.style.height = 'auto';
+
+        link.append(badge);
+        brand.append(link);
+      };
+
+      new MutationObserver(addAppStoreBadge).observe(root, { childList: true, subtree: true });
+      addAppStoreBadge();
+    })();
+  </script>
 </body>
 </html>
