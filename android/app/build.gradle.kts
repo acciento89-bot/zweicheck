@@ -3,6 +3,18 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+fun quotedBuildConfig(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+val firebaseProjectId = providers.gradleProperty("ZWEICHECK_FIREBASE_PROJECT_ID")
+    .orElse(providers.environmentVariable("ZWEICHECK_FIREBASE_PROJECT_ID"))
+    .getOrElse("")
+val firebaseApplicationId = providers.gradleProperty("ZWEICHECK_FIREBASE_APP_ID")
+    .orElse(providers.environmentVariable("ZWEICHECK_FIREBASE_APP_ID"))
+    .getOrElse("")
+val firebaseApiKey = providers.gradleProperty("ZWEICHECK_FIREBASE_API_KEY")
+    .orElse(providers.environmentVariable("ZWEICHECK_FIREBASE_API_KEY"))
+    .getOrElse("")
+
 android {
     namespace = "de.kamilunavo.zweicheck"
     compileSdk = 36
@@ -15,6 +27,9 @@ android {
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"https://zweicheck.kamilunavo.com\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", quotedBuildConfig(firebaseProjectId))
+        buildConfigField("String", "FIREBASE_APP_ID", quotedBuildConfig(firebaseApplicationId))
+        buildConfigField("String", "FIREBASE_API_KEY", quotedBuildConfig(firebaseApiKey))
     }
 
     buildFeatures {
@@ -50,6 +65,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.android.billingclient:billing-ktx:9.1.0")
+    implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
