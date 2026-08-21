@@ -50,6 +50,23 @@ jobs:
           grep -Fq 'AndroidKeyStore' android/app/src/main/java/de/kamilunavo/zweicheck/SessionStore.kt
           grep -Fq 'images.take(3)' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
           grep -Fq 'android.intent.action.SEND_MULTIPLE' android/app/src/main/AndroidManifest.xml
+          echo 'Checking Premium Family Play Billing...'
+          grep -Fq 'com.android.billingclient:billing-ktx:9.1.0' android/app/build.gradle.kts
+          grep -Fq 'de.kamilunavo.zweicheck.premium.family.monthly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
+          grep -Fq 'de.kamilunavo.zweicheck.premium.family.yearly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
+          grep -Fq 'Käufe wiederherstellen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          echo 'Checking privacy-safe FCM opt-in...'
+          grep -Fq 'com.google.firebase:firebase-bom:34.17.0' android/app/build.gradle.kts
+          grep -Fq 'firebase_messaging_auto_init_enabled' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:value="false"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'com.google.firebase.MESSAGING_EVENT' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'FcmRegistration.enableAndRegister' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq '/api/push/fcm/tokens' android/app/src/main/java/de/kamilunavo/zweicheck/FcmRegistration.kt
+          grep -Fq 'EXTRA_CHECK_ID' android/app/src/main/java/de/kamilunavo/zweicheck/ZweiCheckMessagingService.kt
+          if grep -RFn --include='*.kt' --include='*.xml' 'FIREBASE_SERVICE_ACCOUNT_JSON_B64' android/app/src; then
+            echo 'Server Firebase service-account secret marker leaked into Android source.' >&2
+            exit 1
+          fi
       - name: Upload unsigned release AAB
         uses: actions/upload-artifact@v4
         with:
