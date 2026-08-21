@@ -20,7 +20,7 @@ class ZweiCheckMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         if (!FirebaseRuntime.isConfigured || token.isBlank()) return
         scope.launch {
-            runCatching { ApiClient(applicationContext).registerFcmToken(token) }
+            runCatching { FcmRegistration.registerToken(applicationContext, token) }
         }
     }
 
