@@ -187,7 +187,7 @@ class ApiClient(context: Context) {
             if (contentType != null) setRequestProperty("Content-Type", contentType)
             if (body != null) {
                 doOutput = true
-                fixedLengthStreamingMode = body.size
+                setFixedLengthStreamingMode(body.size)
             }
         }
 
