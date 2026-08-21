@@ -22,6 +22,20 @@ function privateKeyValue() {
   }
 }
 
+function firebaseServiceAccountValue() {
+  const encoded = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON_B64 || '').trim();
+  if (!encoded) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+    if (!parsed?.client_email || !parsed?.private_key || !parsed?.project_id) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+const firebaseServiceAccount = firebaseServiceAccountValue();
+
 const config = {
   port: integerValue(process.env.PORT, 3000),
   appBaseUrl: (process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
@@ -52,6 +66,12 @@ const config = {
     keyId: process.env.APNS_KEY_ID || '',
     privateKey: privateKeyValue(),
     bundleId: process.env.APNS_BUNDLE_ID || 'de.kamilunavo.zweicheck'
+  },
+  fcm: {
+    projectId: firebaseServiceAccount?.project_id || process.env.FIREBASE_PROJECT_ID || '',
+    clientEmail: firebaseServiceAccount?.client_email || '',
+    privateKey: firebaseServiceAccount?.private_key || '',
+    tokenUri: firebaseServiceAccount?.token_uri || 'https://oauth2.googleapis.com/token'
   }
 };
 
