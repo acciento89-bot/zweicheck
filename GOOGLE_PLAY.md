@@ -13,23 +13,14 @@
 
 ## Monetization — Premium Familie
 
-The current native iOS product already contains the voluntary `Premium Familie` subscription. Android must mirror it; the older App-Store handoff that said “no IAP in 1.0” is stale and must not be used as product truth.
+Google Play mirrors the current native iOS Premium Family products:
 
-Current iOS product IDs:
-
-- Monthly: `de.kamilunavo.zweicheck.premium.family.monthly`
-- Yearly: `de.kamilunavo.zweicheck.premium.family.yearly`
-
-Google Play should use the same two identifiers as independent Play subscription records so cross-platform product mapping stays obvious.
-
-| Product | Play subscription ID | Base plan ID | German launch price |
+| Product | Play subscription ID | Base plan | DE launch price |
 | --- | --- | --- | ---: |
 | Premium Familie Monthly | `de.kamilunavo.zweicheck.premium.family.monthly` | `monthly` | €4.99 / month |
 | Premium Familie Yearly | `de.kamilunavo.zweicheck.premium.family.yearly` | `yearly` | €39.99 / year |
 
-The monthly/annual launch-price decision comes from the current product/UI regression history; runtime UI must always display the localized price returned by Google Play, never a hard-coded price.
-
-Current native entitlement behavior to mirror:
+Runtime UI displays the localized price returned by Google Play.
 
 ### Free
 - core check/request and response flow;
@@ -43,65 +34,72 @@ Current native entitlement behavior to mirror:
 - optional fallback/second trusted person;
 - optional automatic reroute to that second person after the reminder.
 
-The Play client must query both subscription products, show localized Play prices, acknowledge successful purchases, restore ownership, and derive the local Premium entitlement from current Play subscription ownership. Any future server-side cross-platform entitlement sync is a separate hardening gate; do not invent a backend entitlement that does not currently exist in the iOS architecture.
+The Android client uses Play Billing 9.1 for product query, monthly/yearly purchase, acknowledgement, restore and current Play entitlement state.
 
-## Native parity target
+## Native Android parity
 
-Android is a native client against the same ZweiCheck API as the SwiftUI app. It must not be replaced with a WebView shell.
+Implemented:
 
-Implemented in the Android lane:
-
-- login and registration;
+- login, registration and password reset;
 - encrypted `zc_session` persistence using Android Keystore;
-- password-reset request;
-- native checks list;
-- reviewer recommendations using the existing four API wire values;
-- trust-routing and presence state;
-- invitation creation and code acceptance;
+- native checks/respond flow;
+- trust routing, presence and invitations;
 - native four-step check creation;
-- Android document/photo selection;
-- incoming Android share intents;
-- verified HTTPS-only networking;
-- app links for `zweicheck.kamilunavo.com`;
-- account logout and API support for account deletion;
-- canonical 1024×1024 product icon shared with the iOS asset source.
+- Free/Premium image limits;
+- Premium reminder/fallback/auto-reroute controls;
+- `ACTION_SEND` and `ACTION_SEND_MULTIPLE` draft handling;
+- HTTPS-only API networking and app links;
+- account JSON export;
+- native account deletion;
+- Google Play Billing Premium Family screen/restore;
+- branded Android vector launcher icon;
+- FCM client/service and server transport;
+- explicit notification opt-in;
+- FCM token removal on logout/account deletion;
+- notification tap routes the relevant check to the top of the checks screen.
 
-Still required before production parity:
+## Firebase / FCM architecture
 
-- Google Play Billing subscription UI/restore and Premium gates;
-- FCM push transport and backend token registration for Android;
-- notification tap routing to the relevant check;
-- robust incoming `ACTION_SEND_MULTIPLE` draft handling for up to three shared images while respecting Free/Premium image limits;
-- native account/export/delete UI completion;
-- accessibility/device QA;
-- persistent Play upload key and signed AAB.
+The repository does not require or store `google-services.json`.
 
-## Push / FCM external gate
+Android initializes Firebase programmatically from the three public Firebase Android app values supplied to the build:
 
-The existing product already supports Web Push and native APNs. Android native push requires an FCM project/app for package `de.kamilunavo.zweicheck` plus server-side Firebase credentials. Secrets must stay in deployment configuration and must never be committed to the repository.
+- `ZWEICHECK_FIREBASE_PROJECT_ID`
+- `ZWEICHECK_FIREBASE_APP_ID`
+- `ZWEICHECK_FIREBASE_API_KEY`
 
-The Android app should register its FCM token only after notification permission is granted. Push payloads must retain ZweiCheck's privacy rule: do not include descriptions, images or other sensitive check contents in notifications.
+FCM auto-init is disabled in the manifest. The user explicitly taps **Push-Benachrichtigungen aktivieren**; Android then requests `POST_NOTIFICATIONS` where required, enables FCM auto-init and registers the token to the authenticated, email-verified ZweiCheck account.
+
+Server credential:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON_B64=<full Firebase/Google service-account JSON as base64>`
+
+This credential stays server-side only. The existing ZweiCheck push worker sends Web Push, APNs and FCM from one queue. FCM uses the HTTP v1 API with short-lived OAuth credentials.
+
+FCM payload privacy:
+
+- allowed: generic title/body, `checkId`, event type, app URL/tag;
+- not included: check description, image bytes/URLs, amount, passwords, TANs or other user-entered check content.
+
+Invalid/unregistered FCM tokens are deleted server-side. Other transient failures retain the token and go through the existing push-worker retry logic.
+
+## Firebase Console setup still external
+
+1. Create/open the Firebase project used for ZweiCheck.
+2. Add Android app package `de.kamilunavo.zweicheck`.
+3. Copy Firebase Project ID, Mobile SDK App ID and Web API Key into the three Android build variables above.
+4. Create/use a server service account that can send FCM HTTP v1 messages.
+5. Base64 the full service-account JSON and store it only as `FIREBASE_SERVICE_ACCOUNT_JSON_B64` in the ZweiCheck production deployment.
+6. Redeploy the server.
+7. Install a Play/internal-test build, sign in with an email-verified test user, tap Push activation and approve notifications.
+8. Trigger a check from another test account and verify notification delivery and check routing.
 
 ## Store listing draft (DE)
 
-### Short description
+**Short description**  
 Gemeinsam prüfen, bevor du zahlst, klickst oder persönliche Daten weitergibst.
 
-### Full description
-ZweiCheck verbindet dich in unsicheren Situationen mit einer Person, der du vertraust – bevor du zahlst, auf einen Link klickst, etwas installierst oder persönliche Daten weitergibst.
-
-Erstelle eine Prüfanfrage, beschreibe kurz die Situation und füge bei Bedarf ein Bild hinzu. Deine Vertrauensperson kann dir anschließend eine klare Handlungsempfehlung geben.
-
-Funktionen:
-- private Vertrauensverbindungen statt öffentlicher Nutzersuche
-- Prüfanfragen für Nachrichten, Zahlungen, Links und persönliche Daten
-- klare Empfehlungen wie „Nicht handeln“ oder „Erst persönlich klären“
-- Verfügbarkeitsstatus für Vertrauenspersonen
-- Einladungen per Code
-- Verlauf und Aktivitäten
-- sichere Konto- und Sitzungsverwaltung
-
-Premium Familie erweitert ZweiCheck unter anderem auf bis zu drei Bilder je Prüfung und zusätzliche Erinnerungs-/Ausweichpersonen-Funktionen. Preise und Verfügbarkeit werden direkt über Google Play angezeigt.
+ZweiCheck verbindet dich in unsicheren Situationen mit einer Person, der du vertraust – bevor du zahlst, auf einen Link klickst, etwas installierst oder persönliche Daten weitergibst. Prüfanfragen können Nachrichten, Zahlungen, Links und persönliche Daten betreffen. Deine Vertrauensperson antwortet mit einer klaren menschlichen Handlungsempfehlung. Premium Familie ergänzt bis zu drei Bilder je Prüfung sowie Erinnerungs- und Ausweichpersonen-Funktionen.
 
 ZweiCheck ersetzt keine professionelle Sicherheits-, Rechts- oder Finanzberatung und gibt keine Garantie dafür, dass ein Vorgang sicher oder betrügerisch ist. Teile keine Passwörter, TANs oder vollständigen Kartendaten.
 
@@ -113,22 +111,27 @@ ZweiCheck ersetzt keine professionelle Sicherheits-, Rechts- oder Finanzberatung
 - Support: `https://zweicheck.kamilunavo.com/support`
 - Ads: No
 - Billing/IAP: Yes — two auto-renewing Premium Familie subscriptions
-- Account required for protected app functions: Yes
-- Account deletion: supported by backend and must be exposed in the final Android account UI.
+- Account required for protected functions: Yes
+- Account deletion: implemented directly in Android and supported by backend.
 
 ## Release gates
 
-- [x] Android core CI: tests + debug AAB + minified release AAB green before icon/premium follow-up.
-- [x] Canonical product icon wired from existing 1024×1024 iOS asset.
-- [x] Premium Family product IDs and Free/Premium behavior reconciled against current iOS code.
-- [ ] Add Play Billing 9.1 subscription query/purchase/restore and entitlement gates.
-- [ ] Re-run Android CI after billing/icon changes.
-- [ ] Complete Android account/export/delete screen.
-- [ ] Complete Android shared-image draft parity.
-- [ ] Create Firebase Android app and FCM configuration.
-- [ ] Add server-side FCM send/token lifecycle without exposing credentials in the app/repo.
-- [ ] Generate persistent Play upload key and signed release AAB after all code gates are green.
+- [x] API 36 native Android core.
+- [x] Encrypted session storage.
+- [x] Debug + minified release AAB green before FCM follow-up.
+- [x] Stable branded Android launcher icon; AAPT2 release crash resolved.
+- [x] Premium Family product IDs and Free/Premium behavior reconciled with iOS.
+- [x] Play Billing 9.1 query/purchase/restore and feature gates.
+- [x] Native account export/delete UI.
+- [x] Shared text/multiple-image draft parity.
+- [x] Server-side FCM HTTP v1 transport/token lifecycle.
+- [x] Explicit Android notification opt-in and push check routing.
+- [ ] Current Android/server CI green after final FCM client changes.
+- [ ] Create/configure Firebase Android app and production service account.
+- [ ] Configure the three public Android Firebase build values.
+- [ ] Configure `FIREBASE_SERVICE_ACCOUNT_JSON_B64` in production and redeploy.
+- [ ] Generate persistent Play upload key and final signed AAB only after Firebase configuration is locked.
 - [ ] Create Play Console app `ZweiCheck` / `de.kamilunavo.zweicheck`.
-- [ ] Create and activate both Premium Familie subscriptions/base plans at the locked launch prices.
-- [ ] Complete Data safety and account deletion declarations against final backend/mobile behavior.
-- [ ] Internal-test fresh install, login/register, Free image limit, monthly/yearly purchase, restore, Premium feature gates, create/respond, share, invitation and deletion flows.
+- [ ] Create/activate both Premium Familie subscriptions/base plans.
+- [ ] Complete Data safety, account deletion and content-rating declarations.
+- [ ] Internal test: fresh install, login/register, Free image limit, monthly/yearly purchase, restore, Premium gates, create/respond, share, invitation, push, notification routing, export and deletion.
