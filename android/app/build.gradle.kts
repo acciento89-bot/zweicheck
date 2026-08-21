@@ -3,6 +3,19 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val generatedIconResDir = layout.buildDirectory.dir("generated/zweicheckIcon/res").get().asFile
+val generateZweiCheckIcon by tasks.registering(Copy::class) {
+    val sourceIcon = rootProject.file("../ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png")
+    from(sourceIcon)
+    into(generatedIconResDir.resolve("drawable-nodpi"))
+    rename { "zweicheck_app_icon.png" }
+    doFirst {
+        if (!sourceIcon.isFile) {
+            throw GradleException("Canonical ZweiCheck AppIcon-1024.png is missing: ${sourceIcon.path}")
+        }
+    }
+}
+
 android {
     namespace = "de.kamilunavo.zweicheck"
     compileSdk = 36
@@ -16,6 +29,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"https://zweicheck.kamilunavo.com\"")
     }
+
+    sourceSets.getByName("main").res.srcDir(generatedIconResDir)
 
     buildFeatures {
         compose = true
@@ -33,6 +48,10 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(generateZweiCheckIcon)
 }
 
 dependencies {
