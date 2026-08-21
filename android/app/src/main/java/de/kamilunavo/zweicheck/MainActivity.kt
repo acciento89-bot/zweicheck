@@ -1,7 +1,10 @@
 package de.kamilunavo.zweicheck
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -41,12 +44,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { ZweiCheckApp(this) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        recreate()
     }
 }
 
@@ -58,18 +68,49 @@ private fun ZweiCheckApp(activity: MainActivity) {
     val api = remember { ApiClient(activity.applicationContext) }
     val billing = remember { BillingManager(activity.applicationContext) }
     val scope = rememberCoroutineScope()
+    val initialCheckId = remember { extractCheckId(activity.intent) }
     var user by remember { mutableStateOf<User?>(null) }
     var checks by remember { mutableStateOf<List<CheckItem>>(emptyList()) }
     var trust by remember { mutableStateOf<TrustRouting?>(null) }
-    var tab by remember { mutableStateOf(Tab.HOME) }
+    var tab by remember { mutableStateOf(if (initialCheckId != null) Tab.CHECKS else Tab.HOME) }
+    var highlightedCheckId by remember { mutableStateOf(initialCheckId) }
     var creating by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
     var sharedDraft by remember { mutableStateOf(extractSharedDraft(activity)) }
 
+    fun registerPush() {
+        scope.launch {
+            runCatching { FcmRegistration.enableAndRegister(activity.applicationContext) }
+                .onSuccess { enabled -> message = if (enabled) "Push-Benachrichtigungen sind eingerichtet." else "Firebase ist für diesen Build noch nicht konfiguriert." }
+                .onFailure { message = it.message }
+        }
+    }
+
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) registerPush() else message = "Push-Benachrichtigungen wurden nicht freigegeben."
+    }
+
+    fun requestPushOptIn() {
+        if (!FirebaseRuntime.isConfigured) {
+            message = "Firebase ist für diesen Build noch nicht konfiguriert."
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            registerPush()
+        }
+    }
+
     suspend fun refresh() {
         checks = api.checks()
         trust = api.trustRouting()
+    }
+
+    suspend fun refreshPushIfEnabled(currentUser: User?) {
+        if (currentUser?.emailVerified != true) return
+        runCatching { FcmRegistration.ensureRegistered(activity.applicationContext) }
     }
 
     LaunchedEffect(Unit) {
@@ -77,6 +118,7 @@ private fun ZweiCheckApp(activity: MainActivity) {
         try {
             user = api.me()
             refresh()
+            refreshPushIfEnabled(user)
         } catch (cause: ApiException) {
             if (cause.statusCode != 401) message = cause.message
         } catch (cause: Exception) {
@@ -103,6 +145,7 @@ private fun ZweiCheckApp(activity: MainActivity) {
                         try {
                             user = api.login(email, password)
                             refresh()
+                            refreshPushIfEnabled(user)
                         } catch (cause: Exception) {
                             message = cause.message
                         } finally { loading = false }
@@ -195,10 +238,11 @@ private fun ZweiCheckApp(activity: MainActivity) {
                         Tab.CHECKS -> ChecksScreen(
                             checks = checks,
                             currentUserId = user!!.id,
+                            highlightedCheckId = highlightedCheckId,
                             onRespond = { check, recommendation ->
                                 scope.launch {
                                     runCatching { api.respond(check.id, recommendation, "") }
-                                        .onSuccess { refresh() }
+                                        .onSuccess { refresh(); highlightedCheckId = check.id }
                                         .onFailure { message = it.message }
                                 }
                             },
@@ -230,6 +274,7 @@ private fun ZweiCheckApp(activity: MainActivity) {
                             user = user!!,
                             api = api,
                             billing = billing,
+                            onEnablePush = ::requestPushOptIn,
                             onSignedOut = {
                                 user = null
                                 checks = emptyList()
@@ -307,15 +352,22 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun ChecksScreen(checks: List<CheckItem>, currentUserId: String, onRespond: (CheckItem, Recommendation) -> Unit) {
+private fun ChecksScreen(
+    checks: List<CheckItem>,
+    currentUserId: String,
+    highlightedCheckId: String?,
+    onRespond: (CheckItem, Recommendation) -> Unit,
+) {
     if (checks.isEmpty()) {
         Text("Noch keine Prüfanfragen.", modifier = Modifier.padding(top = 24.dp))
         return
     }
+    val ordered = checks.sortedWith(compareByDescending<CheckItem> { it.id == highlightedCheckId }.thenByDescending { it.createdAt })
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 16.dp)) {
-        items(checks, key = { it.id }) { check ->
+        items(ordered, key = { it.id }) { check ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
+                    if (check.id == highlightedCheckId) Text("Aus Benachrichtigung geöffnet", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     Text(check.categoryLabel, fontWeight = FontWeight.Bold)
                     Text(check.description, modifier = Modifier.padding(vertical = 6.dp))
                     Text("${check.requesterName} → ${check.reviewerName} · ${check.status}", style = MaterialTheme.typography.bodySmall)
@@ -426,9 +478,7 @@ private fun NewCheckScreen(
             Text("3. Was ist passiert?", fontWeight = FontWeight.Bold)
             OutlinedTextField(description, { description = it }, label = { Text("Beschreibung") }, modifier = Modifier.fillMaxWidth(), minLines = 4)
             if (category == "payment") OutlinedTextField(amount, { amount = it }, label = { Text("Betrag (optional)") }, modifier = Modifier.fillMaxWidth())
-            OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Text("Bilder auswählen (${images.size}/$imageLimit)")
-            }
+            OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Bilder auswählen (${images.size}/$imageLimit)") }
             if (!isPremiumFamily) {
                 Text("Kostenlos ist 1 Bild möglich. Premium Familie erlaubt bis zu 3 Bilder pro Prüfung.")
                 TextButton(onClick = onOpenPremium) { Text("Premium Familie ansehen") }
@@ -459,9 +509,7 @@ private fun NewCheckScreen(
                     }
                 }
                 if (fallbackReviewerId.isNotBlank() && reminderMinutes > 0) {
-                    OutlinedButton(onClick = { autoReroute = !autoReroute }, modifier = Modifier.fillMaxWidth()) {
-                        Text((if (autoReroute) "✓ " else "") + "Danach automatisch die zweite Person fragen")
-                    }
+                    OutlinedButton(onClick = { autoReroute = !autoReroute }, modifier = Modifier.fillMaxWidth()) { Text((if (autoReroute) "✓ " else "") + "Danach automatisch die zweite Person fragen") }
                 }
             } else {
                 Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -474,19 +522,7 @@ private fun NewCheckScreen(
             }
 
             Button(
-                onClick = {
-                    onCreate(
-                        reviewerId,
-                        fallbackReviewerId.takeIf { isPremiumFamily && it.isNotBlank() },
-                        category,
-                        description,
-                        amount.takeIf { it.isNotBlank() },
-                        urgency,
-                        reminderMinutes.takeIf { isPremiumFamily && it > 0 },
-                        isPremiumFamily && autoReroute,
-                        images.take(imageLimit),
-                    )
-                },
+                onClick = { onCreate(reviewerId, fallbackReviewerId.takeIf { isPremiumFamily && it.isNotBlank() }, category, description, amount.takeIf { it.isNotBlank() }, urgency, reminderMinutes.takeIf { isPremiumFamily && it > 0 }, isPremiumFamily && autoReroute, images.take(imageLimit)) },
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 enabled = reviewerId.isNotBlank() && description.trim().length >= 5,
             ) { Text("Jetzt sicher prüfen lassen") }
@@ -500,6 +536,7 @@ private fun AccountScreen(
     user: User,
     api: ApiClient,
     billing: BillingManager,
+    onEnablePush: () -> Unit,
     onSignedOut: () -> Unit,
     onMessage: (String?) -> Unit,
 ) {
@@ -532,25 +569,25 @@ private fun AccountScreen(
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
+                    Text("Benachrichtigungen", fontWeight = FontWeight.Bold)
+                    Text("ZweiCheck kann dich bei neuen Prüfanfragen und Antworten informieren. Push wird erst nach deiner Freigabe aktiviert.")
+                    Button(onClick = onEnablePush, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = user.emailVerified) { Text("Push-Benachrichtigungen aktivieren") }
+                    if (!user.emailVerified) Text("Bestätige zuerst deine E-Mail-Adresse.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
                     Text("Premium Familie", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("Bis zu 3 Bilder pro Prüfung, Erinnerungen und automatische zweite Vertrauensperson.")
                     if (billing.isPremiumFamily) {
                         Text("Aktiv", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
                     } else {
-                        Button(
-                            onClick = { billing.purchaseMonthly(activity) },
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                            enabled = billing.monthlyPrice != null && !billing.loading,
-                        ) { Text("Monatlich · ${billing.monthlyPrice ?: "wird geladen"}") }
-                        Button(
-                            onClick = { billing.purchaseYearly(activity) },
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            enabled = billing.yearlyPrice != null && !billing.loading,
-                        ) { Text("Jährlich · ${billing.yearlyPrice ?: "wird geladen"}") }
+                        Button(onClick = { billing.purchaseMonthly(activity) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), enabled = billing.monthlyPrice != null && !billing.loading) { Text("Monatlich · ${billing.monthlyPrice ?: "wird geladen"}") }
+                        Button(onClick = { billing.purchaseYearly(activity) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = billing.yearlyPrice != null && !billing.loading) { Text("Jährlich · ${billing.yearlyPrice ?: "wird geladen"}") }
                     }
-                    OutlinedButton(onClick = billing::restorePurchases, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = !billing.loading) {
-                        Text("Käufe wiederherstellen")
-                    }
+                    OutlinedButton(onClick = billing::restorePurchases, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = !billing.loading) { Text("Käufe wiederherstellen") }
                 }
             }
         }
@@ -563,10 +600,7 @@ private fun AccountScreen(
                         onClick = {
                             scope.launch {
                                 runCatching { exportClient.download() }
-                                    .onSuccess { bytes ->
-                                        exportBytes = bytes
-                                        saveExport.launch("zweicheck-datenexport.json")
-                                    }
+                                    .onSuccess { bytes -> exportBytes = bytes; saveExport.launch("zweicheck-datenexport.json") }
                                     .onFailure { onMessage(it.message) }
                             }
                         },
@@ -587,7 +621,16 @@ private fun AccountScreen(
             }
         }
         item {
-            OutlinedButton(onClick = { scope.launch { api.logout(); onSignedOut() } }, modifier = Modifier.fillMaxWidth()) { Text("Abmelden") }
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        runCatching { FcmRegistration.unregisterCurrentToken(activity.applicationContext) }
+                        api.logout()
+                        onSignedOut()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Abmelden") }
         }
         item {
             Card(Modifier.fillMaxWidth()) {
@@ -599,6 +642,7 @@ private fun AccountScreen(
                     Button(
                         onClick = {
                             scope.launch {
+                                runCatching { FcmRegistration.unregisterCurrentToken(activity.applicationContext) }
                                 runCatching { api.deleteAccount(password) }
                                     .onSuccess { onSignedOut() }
                                     .onFailure { onMessage(it.message) }
@@ -629,11 +673,19 @@ private fun MainActivity.readUploadImage(uri: Uri): UploadImage? = runCatching {
     UploadImage(bytes = bytes, fileName = "zweicheck-${System.nanoTime()}.$extension", mimeType = mime)
 }.getOrNull()
 
+private fun extractCheckId(intent: Intent?): String? {
+    intent ?: return null
+    intent.getStringExtra(ZweiCheckMessagingService.EXTRA_CHECK_ID)?.takeIf { it.isNotBlank() }?.let { return it }
+    val fragment = intent.data?.fragment.orEmpty()
+    return fragment.split('&').firstOrNull { it.startsWith("check=") }
+        ?.substringAfter("check=")
+        ?.takeIf { it.isNotBlank() }
+}
+
 @Suppress("DEPRECATION")
 private fun extractSharedDraft(activity: MainActivity): ShareDraft? {
     val intent = activity.intent ?: return null
     if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return null
-
     val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim().orEmpty()
     val uris = when (intent.action) {
         Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
