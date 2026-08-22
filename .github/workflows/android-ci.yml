@@ -20,6 +20,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      ZWEICHECK_FIREBASE_PROJECT_ID: zweicheck
+      ZWEICHECK_FIREBASE_APP_ID: 1:569737949733:android:b959136242819d9367c5cc
+      ZWEICHECK_FIREBASE_API_KEY: AIzaSyDwY42Jur0Jw4vGLqN8DkMunDaHeRlgTQg
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
