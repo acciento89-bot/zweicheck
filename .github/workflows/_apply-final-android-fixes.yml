@@ -1,0 +1,73 @@
+name: Apply ZweiCheck final Android fixes
+
+on:
+  push:
+    branches:
+      - android/final-fixes-1.0.2-3
+    paths:
+      - .github/workflows/_apply-final-android-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: android/final-fixes-1.0.2-3
+          fetch-depth: 0
+      - name: Apply release fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main = Path('android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt')
+          s = main.read_text()
+          s = s.replace('import androidx.activity.ComponentActivity\n', 'import androidx.activity.ComponentActivity\nimport androidx.activity.compose.BackHandler\n')
+          s = s.replace('import androidx.compose.foundation.layout.padding\n', 'import androidx.compose.foundation.layout.padding\nimport androidx.compose.foundation.layout.statusBarsPadding\n')
+          s = s.replace('import androidx.compose.ui.Modifier\n', 'import androidx.compose.ui.Modifier\nimport androidx.compose.ui.graphics.Color\n')
+          s = s.replace(
+              'private data class ShareDraft(val text: String = "", val images: List<UploadImage> = emptyList())\n',
+              '''private data class ShareDraft(val text: String = "", val images: List<UploadImage> = emptyList())\n\nprivate val ZweiCheckColors = lightColorScheme(\n    primary = Color(0xFF0B6B63),\n    onPrimary = Color.White,\n    secondary = Color(0xFF194A62),\n    onSecondary = Color.White,\n    background = Color(0xFFF7F9F8),\n    onBackground = Color(0xFF17201F),\n    surface = Color.White,\n    onSurface = Color(0xFF17201F),\n    surfaceVariant = Color(0xFFE9EFED),\n    onSurfaceVariant = Color(0xFF4A5955),\n    outline = Color(0xFFB9C6C2),\n)\n''')
+          anchor = '''    MaterialTheme(colorScheme = lightColorScheme()) {'''
+          replacement = '''    BackHandler(enabled = user != null) {\n        when {\n            creating -> creating = false\n            tab != Tab.HOME -> {\n                tab = Tab.HOME\n                highlightedCheckId = null\n            }\n            else -> activity.moveTaskToBack(true)\n        }\n    }\n\n    MaterialTheme(colorScheme = ZweiCheckColors) {'''
+          if anchor not in s:
+              raise SystemExit('ZweiCheck MaterialTheme anchor missing')
+          s = s.replace(anchor, replacement, 1)
+          s = s.replace('Text("${check.requesterName} → ${check.reviewerName} · ${check.status}", style = MaterialTheme.typography.bodySmall)', 'Text("${check.requesterName} → ${check.reviewerName} · ${check.statusLabel}", style = MaterialTheme.typography.bodySmall)')
+          s = s.replace('check.recommendation?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }', 'check.recommendationLabel?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }')
+          s = s.replace('LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {', 'LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {', 1)
+          main.write_text(s)
+
+          models = Path('android/app/src/main/java/de/kamilunavo/zweicheck/Models.kt')
+          m = models.read_text()
+          anchor = '''    val categoryLabel: String\n        get() = when (category) {\n            "message" -> "Nachricht"\n            "payment" -> "Zahlung"\n            "link" -> "Link oder Webseite"\n            "data" -> "Persönliche Daten"\n            else -> "Prüfanfrage"\n        }\n}'''
+          replacement = '''    val categoryLabel: String\n        get() = when (category) {\n            "message" -> "Nachricht"\n            "payment" -> "Zahlung"\n            "link" -> "Link oder Webseite"\n            "data" -> "Persönliche Daten"\n            else -> "Prüfanfrage"\n        }\n\n    val statusLabel: String\n        get() = when (status) {\n            "draft" -> "Entwurf"\n            "pending", "open" -> "Wartet auf Antwort"\n            "responded" -> "Beantwortet"\n            "closed" -> "Abgeschlossen"\n            else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }\n        }\n\n    val recommendationLabel: String?\n        get() = recommendation?.let { value ->\n            Recommendation.entries.firstOrNull { it.wireValue == value }?.label\n                ?: value.replace('_', ' ').replaceFirstChar { it.uppercase() }\n        }\n}'''
+          if anchor not in m:
+              raise SystemExit('ZweiCheck model anchor missing')
+          models.write_text(m.replace(anchor, replacement, 1))
+
+          gradle = Path('android/app/build.gradle.kts')
+          g = gradle.read_text().replace('versionCode = 2', 'versionCode = 3').replace('versionName = "1.0.1"', 'versionName = "1.0.2"')
+          gradle.write_text(g)
+
+          for name in ['.github/workflows/android-ci.yml', '.github/workflows/android-release.yml', 'GOOGLE_PLAY.md']:
+              p = Path(name)
+              if not p.exists():
+                  continue
+              x = p.read_text()
+              x = x.replace('versionCode = 2', 'versionCode = 3')
+              x = x.replace('versionName = "1.0.1"', 'versionName = "1.0.2"')
+              x = x.replace('1.0.1 (2)', '1.0.2 (3)')
+              x = x.replace('1.0.1-2', '1.0.2-3')
+              p.write_text(x)
+          PY
+          git config user.name 'Kamilunavo Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add android GOOGLE_PLAY.md .github/workflows/android-ci.yml .github/workflows/android-release.yml
+          git diff --cached --check
+          git commit -m 'fix(android): polish navigation labels and theme for 1.0.2 (3)'
+          git push origin HEAD:android/final-fixes-1.0.2-3
