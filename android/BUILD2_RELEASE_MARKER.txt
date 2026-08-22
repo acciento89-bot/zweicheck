@@ -1,1 +1,2 @@
 Build 2 uses de.kamilunavo.zweicheck.family.monthly and de.kamilunavo.zweicheck.family.yearly.
+Release verification requested for 1.0.1 (2).
