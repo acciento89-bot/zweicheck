@@ -19,8 +19,8 @@ import com.android.billingclient.api.QueryPurchasesParams
 
 class BillingManager(context: Context) : PurchasesUpdatedListener {
     companion object {
-        const val MONTHLY_PRODUCT_ID = "de.kamilunavo.zweicheck.premium.family.monthly"
-        const val YEARLY_PRODUCT_ID = "de.kamilunavo.zweicheck.premium.family.yearly"
+        const val MONTHLY_PRODUCT_ID = "de.kamilunavo.zweicheck.family.monthly"
+        const val YEARLY_PRODUCT_ID = "de.kamilunavo.zweicheck.family.yearly"
         private val PRODUCT_IDS = setOf(MONTHLY_PRODUCT_ID, YEARLY_PRODUCT_ID)
     }
 
