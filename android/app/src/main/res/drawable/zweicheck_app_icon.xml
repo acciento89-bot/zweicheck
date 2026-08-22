@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#0D1B2A"
+        android:pathData="M0,0h108v108h-108z" />
+    <!-- ZweiCheck: stylized white 2 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,34C34,22 44,17 56,17C72,17 81,26 81,39C81,50 74,57 63,65L48,76H81V90H27V78L53,58C62,51 67,47 67,41C67,35 63,31 56,31C49,31 44,35 42,42Z" />
+    <!-- turquoise connection arc -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#00D4C4"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M24,57C19,68 22,82 32,91" />
+    <!-- integrated check -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#00D4C4"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M34,72L45,82L68,55" />
+</vector>

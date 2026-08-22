@@ -3,17 +3,28 @@ const http2 = require('node:http2');
 
 const { config } = require('./config');
 const db = require('./db');
+const {
+  isFCMEnabled,
+  registerFCMPushRoutes,
+  sendFCMPushForUser
+} = require('./fcm');
 
 let cachedProviderToken = null;
 let cachedProviderTokenAt = 0;
 
-function isAPNsEnabled() {
+function isAPNsTransportEnabled() {
   return Boolean(
     config.apns.teamId
     && config.apns.keyId
     && config.apns.privateKey
     && config.apns.bundleId
   );
+}
+
+// Kept as the existing public worker capability check. The push worker historically
+// calls isAPNsEnabled(); Android FCM is now another native transport behind that lane.
+function isAPNsEnabled() {
+  return isAPNsTransportEnabled() || isFCMEnabled();
 }
 
 function validateNativeToken(input) {
@@ -46,14 +57,16 @@ async function ensureNativePushSchema() {
   `);
 }
 
-function registerNativePushRoutes(app, {
-  requireAuth,
-  requireVerified,
-  asyncHandler,
-  httpError
-}) {
+function registerNativePushRoutes(app, dependencies) {
+  const {
+    requireAuth,
+    requireVerified,
+    asyncHandler,
+    httpError
+  } = dependencies;
+
   app.get('/api/push/native/config', requireAuth, (_req, res) => {
-    res.json({ enabled: isAPNsEnabled(), bundleId: config.apns.bundleId });
+    res.json({ enabled: isAPNsTransportEnabled(), bundleId: config.apns.bundleId });
   });
 
   app.post('/api/push/native/tokens', requireAuth, requireVerified, asyncHandler(async (req, res) => {
@@ -74,7 +87,7 @@ function registerNativePushRoutes(app, {
           updated_at = now(),
           last_error = NULL
     `, [crypto.randomUUID(), req.user.id, token, environment]);
-    res.status(201).json({ saved: true, enabled: isAPNsEnabled() });
+    res.status(201).json({ saved: true, enabled: isAPNsTransportEnabled() });
   }));
 
   app.delete('/api/push/native/tokens', requireAuth, asyncHandler(async (req, res) => {
@@ -92,6 +105,8 @@ function registerNativePushRoutes(app, {
     );
     res.status(204).end();
   }));
+
+  registerFCMPushRoutes(app, dependencies);
 }
 
 function base64Url(value) {
@@ -202,8 +217,8 @@ function sendAPNsRequest({ token, environment, payload }) {
   });
 }
 
-async function sendNativePushForUser(userId, payload) {
-  if (!isAPNsEnabled()) return { sent: 0, registered: 0, errors: [], disabled: true };
+async function sendAPNsForUser(userId, payload) {
+  if (!isAPNsTransportEnabled()) return { sent: 0, registered: 0, errors: [], disabled: true };
   await ensureNativePushSchema();
   const tokens = await db.query(`
     SELECT id, token, environment
@@ -240,8 +255,22 @@ async function sendNativePushForUser(userId, payload) {
   return { sent, registered: tokens.rowCount, errors, disabled: false };
 }
 
+async function sendNativePushForUser(userId, payload) {
+  const [apns, fcm] = await Promise.all([
+    sendAPNsForUser(userId, payload),
+    sendFCMPushForUser(userId, payload)
+  ]);
+  return {
+    sent: apns.sent + fcm.sent,
+    registered: apns.registered + fcm.registered,
+    errors: [...apns.errors, ...fcm.errors],
+    disabled: apns.disabled && fcm.disabled
+  };
+}
+
 module.exports = {
   isAPNsEnabled,
+  isAPNsTransportEnabled,
   validateNativeToken,
   normalizeEnvironment,
   ensureNativePushSchema,

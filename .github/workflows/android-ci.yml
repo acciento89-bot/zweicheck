@@ -1,0 +1,76 @@
+name: ZweiCheck Android CI
+
+on:
+  push:
+    branches:
+      - 'android/**'
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 16 SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+      - name: Unit tests
+        run: gradle -p android testDebugUnitTest --stacktrace
+      - name: Build debug AAB
+        run: gradle -p android bundleDebug --stacktrace
+      - name: Build release AAB
+        run: gradle -p android bundleRelease --stacktrace
+      - name: Verify release identity and native security gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f android/app/build/outputs/bundle/release/app-release.aab
+          grep -Fq 'applicationId = "de.kamilunavo.zweicheck"' android/app/build.gradle.kts
+          grep -Fq 'targetSdk = 36' android/app/build.gradle.kts
+          grep -Fq 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'zc_session' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
+          grep -Fq 'AndroidKeyStore' android/app/src/main/java/de/kamilunavo/zweicheck/SessionStore.kt
+          grep -Fq 'images.take(3)' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
+          grep -Fq 'android.intent.action.SEND_MULTIPLE' android/app/src/main/AndroidManifest.xml
+          echo 'Checking Premium Family Play Billing...'
+          grep -Fq 'com.android.billingclient:billing-ktx:9.1.0' android/app/build.gradle.kts
+          grep -Fq 'de.kamilunavo.zweicheck.premium.family.monthly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
+          grep -Fq 'de.kamilunavo.zweicheck.premium.family.yearly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
+          grep -Fq 'Käufe wiederherstellen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          echo 'Checking privacy-safe FCM opt-in...'
+          grep -Fq 'com.google.firebase:firebase-bom:34.17.0' android/app/build.gradle.kts
+          grep -Fq 'firebase_messaging_auto_init_enabled' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:value="false"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'com.google.firebase.MESSAGING_EVENT' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'FcmRegistration.enableAndRegister' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq '/api/push/fcm/tokens' android/app/src/main/java/de/kamilunavo/zweicheck/FcmRegistration.kt
+          grep -Fq 'EXTRA_CHECK_ID' android/app/src/main/java/de/kamilunavo/zweicheck/ZweiCheckMessagingService.kt
+          if grep -RFn --include='*.kt' --include='*.xml' 'FIREBASE_SERVICE_ACCOUNT_JSON_B64' android/app/src; then
+            echo 'Server Firebase service-account secret marker leaked into Android source.' >&2
+            exit 1
+          fi
+      - name: Upload unsigned release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZweiCheck-unsigned-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 7
