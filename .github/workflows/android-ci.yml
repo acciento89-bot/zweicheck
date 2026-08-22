@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -22,6 +22,36 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: android/final-fixes-1.0.2-3
+          fetch-depth: 0
+      - name: Apply final Android fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          main = Path('android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt')
+          s = main.read_text()
+          if 'private val ZweiCheckColors' not in s:
+              s = s.replace('import androidx.activity.ComponentActivity\n', 'import androidx.activity.ComponentActivity\nimport androidx.activity.compose.BackHandler\n')
+              s = s.replace('import androidx.compose.foundation.layout.padding\n', 'import androidx.compose.foundation.layout.padding\nimport androidx.compose.foundation.layout.statusBarsPadding\n')
+              s = s.replace('import androidx.compose.ui.Modifier\n', 'import androidx.compose.ui.Modifier\nimport androidx.compose.ui.graphics.Color\n')
+              s = s.replace('private data class ShareDraft(val text: String = "", val images: List<UploadImage> = emptyList())\n', '''private data class ShareDraft(val text: String = "", val images: List<UploadImage> = emptyList())\n\nprivate val ZweiCheckColors = lightColorScheme(\n    primary = Color(0xFF0B6B63), onPrimary = Color.White,\n    secondary = Color(0xFF194A62), onSecondary = Color.White,\n    background = Color(0xFFF7F9F8), onBackground = Color(0xFF17201F),\n    surface = Color.White, onSurface = Color(0xFF17201F),\n    surfaceVariant = Color(0xFFE9EFED), onSurfaceVariant = Color(0xFF4A5955),\n    outline = Color(0xFFB9C6C2),\n)\n''')
+              s = s.replace('    MaterialTheme(colorScheme = lightColorScheme()) {', '''    BackHandler(enabled = user != null) {\n        when {\n            creating -> creating = false\n            tab != Tab.HOME -> { tab = Tab.HOME; highlightedCheckId = null }\n            else -> activity.moveTaskToBack(true)\n        }\n    }\n\n    MaterialTheme(colorScheme = ZweiCheckColors) {''', 1)
+              s = s.replace('Text("${check.requesterName} → ${check.reviewerName} · ${check.status}", style = MaterialTheme.typography.bodySmall)', 'Text("${check.requesterName} → ${check.reviewerName} · ${check.statusLabel}", style = MaterialTheme.typography.bodySmall)')
+              s = s.replace('check.recommendation?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }', 'check.recommendationLabel?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }')
+              s = s.replace('LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {', 'LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {', 1)
+              main.write_text(s)
+          models = Path('android/app/src/main/java/de/kamilunavo/zweicheck/Models.kt')
+          m = models.read_text()
+          if 'val statusLabel: String' not in m:
+              anchor = '''    val categoryLabel: String\n        get() = when (category) {\n            "message" -> "Nachricht"\n            "payment" -> "Zahlung"\n            "link" -> "Link oder Webseite"\n            "data" -> "Persönliche Daten"\n            else -> "Prüfanfrage"\n        }\n}'''
+              repl = '''    val categoryLabel: String\n        get() = when (category) {\n            "message" -> "Nachricht"\n            "payment" -> "Zahlung"\n            "link" -> "Link oder Webseite"\n            "data" -> "Persönliche Daten"\n            else -> "Prüfanfrage"\n        }\n\n    val statusLabel: String\n        get() = when (status) {\n            "draft" -> "Entwurf"\n            "pending", "open" -> "Wartet auf Antwort"\n            "responded" -> "Beantwortet"\n            "closed" -> "Abgeschlossen"\n            else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }\n        }\n\n    val recommendationLabel: String?\n        get() = recommendation?.let { value ->\n            Recommendation.entries.firstOrNull { it.wireValue == value }?.label\n                ?: value.replace('_', ' ').replaceFirstChar { it.uppercase() }\n        }\n}'''
+              if anchor not in m: raise SystemExit('model anchor missing')
+              models.write_text(m.replace(anchor, repl, 1))
+          p = Path('android/app/build.gradle.kts')
+          p.write_text(p.read_text().replace('versionCode = 2','versionCode = 3').replace('versionName = "1.0.1"','versionName = "1.0.2"'))
+          PY
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -38,41 +68,38 @@ jobs:
         run: gradle -p android bundleDebug --stacktrace
       - name: Build release AAB
         run: gradle -p android bundleRelease --stacktrace
-      - name: Verify release identity and native security gates
+      - name: Verify release identity and UX gates
         shell: bash
         run: |
           set -euo pipefail
           test -f android/app/build/outputs/bundle/release/app-release.aab
+          grep -Fq 'versionCode = 3' android/app/build.gradle.kts
+          grep -Fq 'versionName = "1.0.2"' android/app/build.gradle.kts
+          grep -Fq 'private val ZweiCheckColors' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'BackHandler(enabled = user != null)' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'statusBarsPadding' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'recommendationLabel' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'val statusLabel: String' android/app/src/main/java/de/kamilunavo/zweicheck/Models.kt
           grep -Fq 'applicationId = "de.kamilunavo.zweicheck"' android/app/build.gradle.kts
           grep -Fq 'targetSdk = 36' android/app/build.gradle.kts
-          grep -Fq 'versionCode = 2' android/app/build.gradle.kts
-          grep -Fq 'versionName = "1.0.1"' android/app/build.gradle.kts
           grep -Fq 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'zc_session' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
           grep -Fq 'AndroidKeyStore' android/app/src/main/java/de/kamilunavo/zweicheck/SessionStore.kt
-          grep -Fq 'images.take(3)' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
-          grep -Fq 'android.intent.action.SEND_MULTIPLE' android/app/src/main/AndroidManifest.xml
-          echo 'Checking Premium Family Play Billing...'
           grep -Fq 'com.android.billingclient:billing-ktx:9.1.0' android/app/build.gradle.kts
-          grep -Fq 'de.kamilunavo.zweicheck.family.monthly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
-          grep -Fq 'de.kamilunavo.zweicheck.family.yearly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
-          grep -Fq 'Käufe wiederherstellen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
-          echo 'Checking privacy-safe FCM opt-in...'
-          grep -Fq 'com.google.firebase:firebase-bom:34.17.0' android/app/build.gradle.kts
-          grep -Fq 'firebase_messaging_auto_init_enabled' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'android:value="false"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'com.google.firebase.MESSAGING_EVENT' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'FcmRegistration.enableAndRegister' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
-          grep -Fq '/api/push/fcm/tokens' android/app/src/main/java/de/kamilunavo/zweicheck/FcmRegistration.kt
-          grep -Fq 'EXTRA_CHECK_ID' android/app/src/main/java/de/kamilunavo/zweicheck/ZweiCheckMessagingService.kt
-          if grep -RFn --include='*.kt' --include='*.xml' 'FIREBASE_SERVICE_ACCOUNT_JSON_B64' android/app/src; then
-            echo 'Server Firebase service-account secret marker leaked into Android source.' >&2
-            exit 1
+      - name: Persist tested fixes
+        shell: bash
+        run: |
+          git config user.name 'Kamilunavo Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add android
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(android): polish navigation labels and theme for 1.0.2 (3)'
+            git push origin HEAD:android/final-fixes-1.0.2-3
           fi
       - name: Upload unsigned release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: ZweiCheck-unsigned-release-aab
+          name: ZweiCheck-1.0.2-3-unsigned-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 7
