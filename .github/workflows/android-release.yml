@@ -11,9 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      ZWEICHECK_FIREBASE_PROJECT_ID: ${{ secrets.ZWEICHECK_FIREBASE_PROJECT_ID }}
-      ZWEICHECK_FIREBASE_APP_ID: ${{ secrets.ZWEICHECK_FIREBASE_APP_ID }}
-      ZWEICHECK_FIREBASE_API_KEY: ${{ secrets.ZWEICHECK_FIREBASE_API_KEY }}
+      ZWEICHECK_FIREBASE_PROJECT_ID: zweicheck
+      ZWEICHECK_FIREBASE_APP_ID: 1:569737949733:android:b959136242819d9367c5cc
+      ZWEICHECK_FIREBASE_API_KEY: AIzaSyDwY42Jur0Jw4vGLqN8DkMunDaHeRlgTQg
       ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
       ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
       ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
@@ -41,8 +41,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$ZWEICHECK_FIREBASE_PROJECT_ID"
-          [[ "$ZWEICHECK_FIREBASE_APP_ID" =~ ^1:[0-9]+:android:[A-Za-z0-9]+$ ]]
+          test "$ZWEICHECK_FIREBASE_PROJECT_ID" = 'zweicheck'
+          test "$ZWEICHECK_FIREBASE_APP_ID" = '1:569737949733:android:b959136242819d9367c5cc'
           [[ "$ZWEICHECK_FIREBASE_API_KEY" =~ ^AIza[A-Za-z0-9_-]+$ ]]
           test -n '${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}'
           test -n "$ANDROID_UPLOAD_STORE_PASSWORD"
