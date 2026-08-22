@@ -70,6 +70,21 @@ data class CheckItem(
             "data" -> "Persönliche Daten"
             else -> "Prüfanfrage"
         }
+
+    val statusLabel: String
+        get() = when (status) {
+            "draft" -> "Entwurf"
+            "pending", "open" -> "Wartet auf Antwort"
+            "responded" -> "Beantwortet"
+            "closed" -> "Abgeschlossen"
+            else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }
+        }
+
+    val recommendationLabel: String?
+        get() = recommendation?.let { value ->
+            Recommendation.entries.firstOrNull { it.wireValue == value }?.label
+                ?: value.replace('_', ' ').replaceFirstChar { it.uppercase() }
+        }
 }
 
 enum class Recommendation(val wireValue: String, val label: String) {

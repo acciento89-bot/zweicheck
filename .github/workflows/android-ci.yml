@@ -38,26 +38,34 @@ jobs:
         run: gradle -p android bundleDebug --stacktrace
       - name: Build release AAB
         run: gradle -p android bundleRelease --stacktrace
-      - name: Verify release identity and native security gates
+      - name: Verify release identity, UX and native security gates
         shell: bash
         run: |
           set -euo pipefail
           test -f android/app/build/outputs/bundle/release/app-release.aab
           grep -Fq 'applicationId = "de.kamilunavo.zweicheck"' android/app/build.gradle.kts
           grep -Fq 'targetSdk = 36' android/app/build.gradle.kts
-          grep -Fq 'versionCode = 2' android/app/build.gradle.kts
-          grep -Fq 'versionName = "1.0.1"' android/app/build.gradle.kts
+          grep -Fq 'versionCode = 3' android/app/build.gradle.kts
+          grep -Fq 'versionName = "1.0.2"' android/app/build.gradle.kts
+          grep -Fq 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:roundIcon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          test -s android/app/src/main/res/drawable/zweicheck_launcher_background.xml
+          test -s android/app/src/main/res/drawable/zweicheck_launcher_foreground.xml
+          grep -Fq 'private val ZweiCheckColors' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'BackHandler(enabled = user != null)' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'statusBarsPadding' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'recommendationLabel' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'val statusLabel: String' android/app/src/main/java/de/kamilunavo/zweicheck/Models.kt
           grep -Fq 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'zc_session' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
           grep -Fq 'AndroidKeyStore' android/app/src/main/java/de/kamilunavo/zweicheck/SessionStore.kt
           grep -Fq 'images.take(3)' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
           grep -Fq 'android.intent.action.SEND_MULTIPLE' android/app/src/main/AndroidManifest.xml
-          echo 'Checking Premium Family Play Billing...'
           grep -Fq 'com.android.billingclient:billing-ktx:9.1.0' android/app/build.gradle.kts
           grep -Fq 'de.kamilunavo.zweicheck.family.monthly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
           grep -Fq 'de.kamilunavo.zweicheck.family.yearly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
           grep -Fq 'Käufe wiederherstellen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
-          echo 'Checking privacy-safe FCM opt-in...'
           grep -Fq 'com.google.firebase:firebase-bom:34.17.0' android/app/build.gradle.kts
           grep -Fq 'firebase_messaging_auto_init_enabled' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:value="false"' android/app/src/main/AndroidManifest.xml
@@ -72,7 +80,7 @@ jobs:
       - name: Upload unsigned release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: ZweiCheck-unsigned-release-aab
+          name: ZweiCheck-1.0.2-3-unsigned-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 7
