@@ -90,7 +90,7 @@ jobs:
         run: |
           git config user.name 'Kamilunavo Release Bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add android
+          git add android/app/build.gradle.kts android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt android/app/src/main/java/de/kamilunavo/zweicheck/Models.kt
           git diff --cached --check
           if ! git diff --cached --quiet; then
             git commit -m 'fix(android): polish navigation labels and theme for 1.0.2 (3)'
