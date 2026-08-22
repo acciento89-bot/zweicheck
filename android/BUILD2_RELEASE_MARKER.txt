@@ -1,0 +1,1 @@
+Build 2 uses de.kamilunavo.zweicheck.family.monthly and de.kamilunavo.zweicheck.family.yearly.
