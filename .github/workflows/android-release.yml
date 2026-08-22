@@ -71,19 +71,21 @@ jobs:
           test -s "$AAB"
           grep -Fq 'applicationId = "de.kamilunavo.zweicheck"' android/app/build.gradle.kts
           grep -Fq 'targetSdk = 36' android/app/build.gradle.kts
-          grep -Fq 'versionCode = 1' android/app/build.gradle.kts
-          grep -Fq 'versionName = "1.0.0"' android/app/build.gradle.kts
+          grep -Fq 'versionCode = 2' android/app/build.gradle.kts
+          grep -Fq 'versionName = "1.0.1"' android/app/build.gradle.kts
+          grep -Fq 'de.kamilunavo.zweicheck.family.monthly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
+          grep -Fq 'de.kamilunavo.zweicheck.family.yearly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
           jarsigner -verify -verbose -certs "$AAB" | tee /tmp/jarsigner.txt
           grep -Fq 'jar verified.' /tmp/jarsigner.txt
-          cp "$AAB" android/app/build/outputs/bundle/release/ZweiCheck-1.0.0-1-PlayStore.aab
-          sha256sum "$AAB" | tee android/app/build/outputs/bundle/release/ZweiCheck-1.0.0-1-PlayStore.aab.sha256
+          cp "$AAB" android/app/build/outputs/bundle/release/ZweiCheck-1.0.1-2-PlayStore.aab
+          sha256sum "$AAB" | tee android/app/build/outputs/bundle/release/ZweiCheck-1.0.1-2-PlayStore.aab.sha256
 
       - name: Upload signed Play bundle
         uses: actions/upload-artifact@v4
         with:
-          name: ZweiCheck-1.0.0-1-PlayStore
+          name: ZweiCheck-1.0.1-2-PlayStore
           path: |
-            android/app/build/outputs/bundle/release/ZweiCheck-1.0.0-1-PlayStore.aab
-            android/app/build/outputs/bundle/release/ZweiCheck-1.0.0-1-PlayStore.aab.sha256
+            android/app/build/outputs/bundle/release/ZweiCheck-1.0.1-2-PlayStore.aab
+            android/app/build/outputs/bundle/release/ZweiCheck-1.0.1-2-PlayStore.aab.sha256
           if-no-files-found: error
           retention-days: 14
