@@ -94,6 +94,28 @@ Invalid/unregistered FCM tokens are deleted server-side. Other transient failure
 7. Install a Play/internal-test build, sign in with an email-verified test user, tap Push activation and approve notifications.
 8. Trigger a check from another test account and verify notification delivery and check routing.
 
+## Persistent Play upload signing
+
+A dedicated ZweiCheck RSA-4096 upload key has been created and must remain the permanent Google Play upload certificate for this package.
+
+Upload certificate SHA-256 fingerprint:
+
+`ED:A6:C1:93:EC:67:47:84:0D:F7:EA:F2:85:B6:B9:1C:E7:7D:CF:D4:A7:6D:7B:39:99:AD:1F:AA:6A:E2:3D:EB`
+
+The manual workflow `.github/workflows/android-release.yml` builds the production-ready signed AAB only when both the persistent upload-key secrets and the Firebase Android values are configured.
+
+Required GitHub repository secrets:
+
+- `ANDROID_UPLOAD_KEYSTORE_BASE64`
+- `ANDROID_UPLOAD_KEYSTORE_PASSWORD`
+- `ANDROID_UPLOAD_KEY_ALIAS`
+- `ANDROID_UPLOAD_KEY_PASSWORD`
+- `ZWEICHECK_FIREBASE_PROJECT_ID`
+- `ZWEICHECK_FIREBASE_APP_ID`
+- `ZWEICHECK_FIREBASE_API_KEY`
+
+The workflow runs tests, builds the minified release, verifies the AAB signature and emits `ZweiCheck-1.0.0-1-PlayStore.aab` plus checksum. A locally signed pre-release artifact exists for signing verification, but the production/internal-test artifact should be rebuilt through this workflow after Firebase values are locked so push is present in the uploaded build.
+
 ## Store listing draft (DE)
 
 **Short description**  
@@ -118,7 +140,7 @@ ZweiCheck ersetzt keine professionelle Sicherheits-, Rechts- oder Finanzberatung
 
 - [x] API 36 native Android core.
 - [x] Encrypted session storage.
-- [x] Debug + minified release AAB green before FCM follow-up.
+- [x] Final Android/server CI green after FCM client changes.
 - [x] Stable branded Android launcher icon; AAPT2 release crash resolved.
 - [x] Premium Family product IDs and Free/Premium behavior reconciled with iOS.
 - [x] Play Billing 9.1 query/purchase/restore and feature gates.
@@ -126,11 +148,12 @@ ZweiCheck ersetzt keine professionelle Sicherheits-, Rechts- oder Finanzberatung
 - [x] Shared text/multiple-image draft parity.
 - [x] Server-side FCM HTTP v1 transport/token lifecycle.
 - [x] Explicit Android notification opt-in and push check routing.
-- [ ] Current Android/server CI green after final FCM client changes.
+- [x] Generate persistent Play upload key.
+- [x] Add reproducible signed Play release workflow.
 - [ ] Create/configure Firebase Android app and production service account.
 - [ ] Configure the three public Android Firebase build values.
 - [ ] Configure `FIREBASE_SERVICE_ACCOUNT_JSON_B64` in production and redeploy.
-- [ ] Generate persistent Play upload key and final signed AAB only after Firebase configuration is locked.
+- [ ] Add upload-key + Firebase values to GitHub repository secrets and build the final signed AAB.
 - [ ] Create Play Console app `ZweiCheck` / `de.kamilunavo.zweicheck`.
 - [ ] Create/activate both Premium Familie subscriptions/base plans.
 - [ ] Complete Data safety, account deletion and content-rating declarations.
