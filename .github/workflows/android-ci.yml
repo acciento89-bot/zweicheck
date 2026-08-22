@@ -45,6 +45,8 @@ jobs:
           test -f android/app/build/outputs/bundle/release/app-release.aab
           grep -Fq 'applicationId = "de.kamilunavo.zweicheck"' android/app/build.gradle.kts
           grep -Fq 'targetSdk = 36' android/app/build.gradle.kts
+          grep -Fq 'versionCode = 2' android/app/build.gradle.kts
+          grep -Fq 'versionName = "1.0.1"' android/app/build.gradle.kts
           grep -Fq 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'zc_session' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
           grep -Fq 'AndroidKeyStore' android/app/src/main/java/de/kamilunavo/zweicheck/SessionStore.kt
@@ -52,8 +54,8 @@ jobs:
           grep -Fq 'android.intent.action.SEND_MULTIPLE' android/app/src/main/AndroidManifest.xml
           echo 'Checking Premium Family Play Billing...'
           grep -Fq 'com.android.billingclient:billing-ktx:9.1.0' android/app/build.gradle.kts
-          grep -Fq 'de.kamilunavo.zweicheck.premium.family.monthly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
-          grep -Fq 'de.kamilunavo.zweicheck.premium.family.yearly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
+          grep -Fq 'de.kamilunavo.zweicheck.family.monthly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
+          grep -Fq 'de.kamilunavo.zweicheck.family.yearly' android/app/src/main/java/de/kamilunavo/zweicheck/BillingManager.kt
           grep -Fq 'Käufe wiederherstellen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
           echo 'Checking privacy-safe FCM opt-in...'
           grep -Fq 'com.google.firebase:firebase-bom:34.17.0' android/app/build.gradle.kts
