@@ -4,8 +4,8 @@
 
 - App name: ZweiCheck
 - Package / application ID: `de.kamilunavo.zweicheck`
-- Version name: `1.0.0`
-- Version code: `1`
+- Version name: `1.0.1`
+- Version code: `2`
 - Target SDK: Android 16 / API 36
 - Minimum SDK: API 26
 - Base app price: Free
@@ -13,12 +13,12 @@
 
 ## Monetization — Premium Familie
 
-Google Play mirrors the current native iOS Premium Family products:
+Google Play uses shorter Android-specific subscription IDs because Play limits subscription product IDs to 40 characters. The iOS StoreKit IDs remain unchanged.
 
 | Product | Play subscription ID | Base plan | DE launch price |
 | --- | --- | --- | ---: |
-| Premium Familie Monthly | `de.kamilunavo.zweicheck.premium.family.monthly` | `monthly` | €4.99 / month |
-| Premium Familie Yearly | `de.kamilunavo.zweicheck.premium.family.yearly` | `yearly` | €39.99 / year |
+| Premium Familie Monthly | `de.kamilunavo.zweicheck.family.monthly` | `monthly` | €4.99 / month |
+| Premium Familie Yearly | `de.kamilunavo.zweicheck.family.yearly` | `yearly` | €39.99 / year |
 
 Runtime UI displays the localized price returned by Google Play.
 
@@ -62,11 +62,11 @@ Implemented:
 
 The repository does not require or store `google-services.json`.
 
-Android initializes Firebase programmatically from the three public Firebase Android app values supplied to the build:
+Android initializes Firebase programmatically from the public production Firebase Android app values locked into the release workflow:
 
-- `ZWEICHECK_FIREBASE_PROJECT_ID`
-- `ZWEICHECK_FIREBASE_APP_ID`
-- `ZWEICHECK_FIREBASE_API_KEY`
+- Project ID: `zweicheck`
+- Firebase Android App ID: `1:569737949733:android:b959136242819d9367c5cc`
+- package: `de.kamilunavo.zweicheck`
 
 FCM auto-init is disabled in the manifest. The user explicitly taps **Push-Benachrichtigungen aktivieren**; Android then requests `POST_NOTIFICATIONS` where required, enables FCM auto-init and registers the token to the authenticated, email-verified ZweiCheck account.
 
@@ -74,7 +74,7 @@ Server credential:
 
 - `FIREBASE_SERVICE_ACCOUNT_JSON_B64=<full Firebase/Google service-account JSON as base64>`
 
-This credential stays server-side only. The existing ZweiCheck push worker sends Web Push, APNs and FCM from one queue. FCM uses the HTTP v1 API with short-lived OAuth credentials.
+The production service-account credential is configured in the server deployment and stays server-side only. The existing ZweiCheck push worker sends Web Push, APNs and FCM from one queue. FCM uses the HTTP v1 API with short-lived OAuth credentials.
 
 FCM payload privacy:
 
@@ -82,17 +82,6 @@ FCM payload privacy:
 - not included: check description, image bytes/URLs, amount, passwords, TANs or other user-entered check content.
 
 Invalid/unregistered FCM tokens are deleted server-side. Other transient failures retain the token and go through the existing push-worker retry logic.
-
-## Firebase Console setup still external
-
-1. Create/open the Firebase project used for ZweiCheck.
-2. Add Android app package `de.kamilunavo.zweicheck`.
-3. Copy Firebase Project ID, Mobile SDK App ID and Web API Key into the three Android build variables above.
-4. Create/use a server service account that can send FCM HTTP v1 messages.
-5. Base64 the full service-account JSON and store it only as `FIREBASE_SERVICE_ACCOUNT_JSON_B64` in the ZweiCheck production deployment.
-6. Redeploy the server.
-7. Install a Play/internal-test build, sign in with an email-verified test user, tap Push activation and approve notifications.
-8. Trigger a check from another test account and verify notification delivery and check routing.
 
 ## Persistent Play upload signing
 
@@ -102,7 +91,7 @@ Upload certificate SHA-256 fingerprint:
 
 `ED:A6:C1:93:EC:67:47:84:0D:F7:EA:F2:85:B6:B9:1C:E7:7D:CF:D4:A7:6D:7B:39:99:AD:1F:AA:6A:E2:3D:EB`
 
-The manual workflow `.github/workflows/android-release.yml` builds the production-ready signed AAB only when both the persistent upload-key secrets and the Firebase Android values are configured.
+The manual workflow `.github/workflows/android-release.yml` builds the production-ready signed AAB with the production Firebase Android app configuration and permanent upload-key secrets.
 
 Required GitHub repository secrets:
 
@@ -110,11 +99,8 @@ Required GitHub repository secrets:
 - `ANDROID_UPLOAD_KEYSTORE_PASSWORD`
 - `ANDROID_UPLOAD_KEY_ALIAS`
 - `ANDROID_UPLOAD_KEY_PASSWORD`
-- `ZWEICHECK_FIREBASE_PROJECT_ID`
-- `ZWEICHECK_FIREBASE_APP_ID`
-- `ZWEICHECK_FIREBASE_API_KEY`
 
-The workflow runs tests, builds the minified release, verifies the AAB signature and emits `ZweiCheck-1.0.0-1-PlayStore.aab` plus checksum. A locally signed pre-release artifact exists for signing verification, but the production/internal-test artifact should be rebuilt through this workflow after Firebase values are locked so push is present in the uploaded build.
+The workflow runs tests, builds the minified release, validates version `1.0.1 (2)` and both Play subscription IDs, verifies the AAB signature and emits `ZweiCheck-1.0.1-2-PlayStore.aab` plus checksum.
 
 ## Store listing draft (DE)
 
@@ -142,19 +128,19 @@ ZweiCheck ersetzt keine professionelle Sicherheits-, Rechts- oder Finanzberatung
 - [x] Encrypted session storage.
 - [x] Final Android/server CI green after FCM client changes.
 - [x] Stable branded Android launcher icon; AAPT2 release crash resolved.
-- [x] Premium Family product IDs and Free/Premium behavior reconciled with iOS.
+- [x] Play-compatible Premium Family product IDs and Free/Premium behavior.
 - [x] Play Billing 9.1 query/purchase/restore and feature gates.
 - [x] Native account export/delete UI.
 - [x] Shared text/multiple-image draft parity.
 - [x] Server-side FCM HTTP v1 transport/token lifecycle.
 - [x] Explicit Android notification opt-in and push check routing.
-- [x] Generate persistent Play upload key.
-- [x] Add reproducible signed Play release workflow.
-- [ ] Create/configure Firebase Android app and production service account.
-- [ ] Configure the three public Android Firebase build values.
-- [ ] Configure `FIREBASE_SERVICE_ACCOUNT_JSON_B64` in production and redeploy.
-- [ ] Add upload-key + Firebase values to GitHub repository secrets and build the final signed AAB.
-- [ ] Create Play Console app `ZweiCheck` / `de.kamilunavo.zweicheck`.
-- [ ] Create/activate both Premium Familie subscriptions/base plans.
+- [x] Persistent Play upload key and reproducible signed release workflow.
+- [x] Firebase Android app configured for `de.kamilunavo.zweicheck`.
+- [x] Production Firebase Android app values locked into the build.
+- [x] `FIREBASE_SERVICE_ACCOUNT_JSON_B64` configured in production and server redeployed.
+- [x] Play Console app created and internal-test upload started.
+- [x] Both Premium Familie subscriptions/base plans created and activated.
+- [x] Build `1.0.1 (2)` CI green and locally signed with the permanent Play upload key.
+- [ ] Upload build `1.0.1 (2)` to the internal-test track and roll it out to testers.
 - [ ] Complete Data safety, account deletion and content-rating declarations.
-- [ ] Internal test: fresh install, login/register, Free image limit, monthly/yearly purchase, restore, Premium gates, create/respond, share, invitation, push, notification routing, export and deletion.
+- [ ] Internal test: fresh install/update, login/register, Free image limit, monthly/yearly purchase, restore, Premium gates, create/respond, share, invitation, push, notification routing, export and deletion.
