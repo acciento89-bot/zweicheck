@@ -4,26 +4,43 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Calm trust-first background. -->
     <path
-        android:fillColor="#0D1B2A"
+        android:fillColor="#081B24"
         android:pathData="M0,0h108v108h-108z" />
-    <!-- ZweiCheck: stylized white 2 -->
+
+    <!-- Protective shield: ZweiCheck is about asking before acting. -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,34C34,22 44,17 56,17C72,17 81,26 81,39C81,50 74,57 63,65L48,76H81V90H27V78L53,58C62,51 67,47 67,41C67,35 63,31 56,31C49,31 44,35 42,42Z" />
-    <!-- turquoise connection arc -->
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#00D4C4"
-        android:strokeWidth="7"
-        android:strokeLineCap="round"
-        android:pathData="M24,57C19,68 22,82 32,91" />
-    <!-- integrated check -->
+        android:fillColor="#0E5B55"
+        android:pathData="M54,13L86,25V49C86,69 74,86 54,96C34,86 22,69 22,49V25Z" />
     <path
         android:fillColor="@android:color/transparent"
-        android:strokeColor="#00D4C4"
+        android:strokeColor="#77E0D2"
+        android:strokeWidth="3"
+        android:strokeLineJoin="round"
+        android:pathData="M54,13L86,25V49C86,69 74,86 54,96C34,86 22,69 22,49V25Z" />
+
+    <!-- First check: your own pause/check. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
         android:strokeWidth="8"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M34,72L45,82L68,55" />
+        android:pathData="M31,52L42,63L58,44" />
+
+    <!-- Second check: confirmation from the trusted person. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#77E0D2"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M50,66L60,76L79,52" />
+
+    <!-- Link dot visually ties the two decisions together. -->
+    <path
+        android:fillColor="#C9FFF8"
+        android:pathData="M54,51a5,5 0,1 0,0,10a5,5 0,1 0,0,-10" />
 </vector>
