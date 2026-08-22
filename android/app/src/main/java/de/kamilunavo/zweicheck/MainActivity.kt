@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -41,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -62,6 +65,15 @@ class MainActivity : ComponentActivity() {
 
 private enum class Tab { HOME, CHECKS, TRUST, ACCOUNT }
 private data class ShareDraft(val text: String = "", val images: List<UploadImage> = emptyList())
+
+private val ZweiCheckColors = lightColorScheme(
+    primary = Color(0xFF0B6B63), onPrimary = Color.White,
+    secondary = Color(0xFF194A62), onSecondary = Color.White,
+    background = Color(0xFFF7F9F8), onBackground = Color(0xFF17201F),
+    surface = Color.White, onSurface = Color(0xFF17201F),
+    surfaceVariant = Color(0xFFE9EFED), onSurfaceVariant = Color(0xFF4A5955),
+    outline = Color(0xFFB9C6C2),
+)
 
 @Composable
 private fun ZweiCheckApp(activity: MainActivity) {
@@ -128,7 +140,15 @@ private fun ZweiCheckApp(activity: MainActivity) {
         }
     }
 
-    MaterialTheme(colorScheme = lightColorScheme()) {
+    BackHandler(enabled = user != null) {
+        when {
+            creating -> creating = false
+            tab != Tab.HOME -> { tab = Tab.HOME; highlightedCheckId = null }
+            else -> activity.moveTaskToBack(true)
+        }
+    }
+
+    MaterialTheme(colorScheme = ZweiCheckColors) {
         when {
             loading -> Column(
                 Modifier.fillMaxSize(),
@@ -370,14 +390,14 @@ private fun ChecksScreen(
                     if (check.id == highlightedCheckId) Text("Aus Benachrichtigung geöffnet", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     Text(check.categoryLabel, fontWeight = FontWeight.Bold)
                     Text(check.description, modifier = Modifier.padding(vertical = 6.dp))
-                    Text("${check.requesterName} → ${check.reviewerName} · ${check.status}", style = MaterialTheme.typography.bodySmall)
+                    Text("${check.requesterName} → ${check.reviewerName} · ${check.statusLabel}", style = MaterialTheme.typography.bodySmall)
                     if (check.reviewerId == currentUserId && check.status != "responded" && check.status != "closed") {
                         Spacer(Modifier.height(10.dp))
                         Recommendation.entries.forEach { recommendation ->
                             OutlinedButton(onClick = { onRespond(check, recommendation) }, modifier = Modifier.fillMaxWidth()) { Text(recommendation.label) }
                         }
                     }
-                    check.recommendation?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
+                    check.recommendationLabel?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
                 }
             }
         }
@@ -452,7 +472,7 @@ private fun NewCheckScreen(
         images = uris.take(imageLimit).mapNotNull(activity::readUploadImage)
     }
 
-    LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
