@@ -42,7 +42,8 @@
           </form>
         </div>
       </details>
-      <nav class="zc-account-links" aria-label="Datenschutz und Hilfe">
+      <nav class="zc-account-links" aria-label="Datenschutz, Rechtliches und Hilfe">
+        <a href="/imprint" target="_blank" rel="noopener">Impressum</a>
         <a href="/privacy" target="_blank" rel="noopener">Datenschutz</a>
         <a href="/privacy-choices" target="_blank" rel="noopener">Datenschutz-Einstellungen</a>
         <a href="/support" target="_blank" rel="noopener">Hilfe & Support</a>
