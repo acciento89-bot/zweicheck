@@ -36,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -347,12 +346,12 @@ private fun ZweiCheckApp(activity: MainActivity) {
 
 @Composable
 private fun AppNavItem(selected: Boolean, onClick: () -> Unit, icon: ImageVector, label: String) {
-    NavigationBarItem(
-        selected = selected,
-        onClick = onClick,
-        icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
-    )
+    Surface(onClick = onClick, color = if (selected) Teal.copy(alpha = 0.12f) else Color.Transparent, shape = RoundedCornerShape(18.dp), modifier = Modifier.width(88.dp).padding(vertical = 5.dp)) {
+        Column(Modifier.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = label, tint = if (selected) Teal else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, color = if (selected) Teal else MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 private data class IntroPage(val icon: ImageVector, val title: String, val text: String, val color: Color)
