@@ -12,28 +12,50 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,9 +66,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 
@@ -66,13 +91,19 @@ class MainActivity : ComponentActivity() {
 private enum class Tab { HOME, CHECKS, TRUST, ACCOUNT }
 private data class ShareDraft(val text: String = "", val images: List<UploadImage> = emptyList())
 
+private val Navy = Color(0xFF061A2F)
+private val NavySoft = Color(0xFF0B2945)
+private val Teal = Color(0xFF0AA6A6)
+private val TealBright = Color(0xFF13C1BA)
+private val Orange = Color(0xFFDB6C20)
+private val AppBackground = Color(0xFFF3F5F7)
 private val ZweiCheckColors = lightColorScheme(
-    primary = Color(0xFF0B6B63), onPrimary = Color.White,
-    secondary = Color(0xFF194A62), onSecondary = Color.White,
-    background = Color(0xFFF7F9F8), onBackground = Color(0xFF17201F),
-    surface = Color.White, onSurface = Color(0xFF17201F),
-    surfaceVariant = Color(0xFFE9EFED), onSurfaceVariant = Color(0xFF4A5955),
-    outline = Color(0xFFB9C6C2),
+    primary = Teal, onPrimary = Color.White,
+    secondary = NavySoft, onSecondary = Color.White,
+    background = AppBackground, onBackground = Navy,
+    surface = Color.White, onSurface = Navy,
+    surfaceVariant = Color(0xFFE8EEF2), onSurfaceVariant = Color(0xFF50606D),
+    outline = Color(0xFFC6D0D8), error = Color(0xFFC33D42),
 )
 
 @Composable
@@ -90,6 +121,8 @@ private fun ZweiCheckApp(activity: MainActivity) {
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
     var sharedDraft by remember { mutableStateOf(extractSharedDraft(activity)) }
+    val preferences = remember { activity.getSharedPreferences("zweicheck_ui", 0) }
+    var onboardingComplete by remember { mutableStateOf(preferences.getBoolean("onboarding_complete", false)) }
 
     fun registerPush() {
         scope.launch {
@@ -148,8 +181,16 @@ private fun ZweiCheckApp(activity: MainActivity) {
         }
     }
 
-    MaterialTheme(colorScheme = ZweiCheckColors) {
+    MaterialTheme(colorScheme = ZweiCheckColors, shapes = MaterialTheme.shapes.copy(
+        small = RoundedCornerShape(12.dp),
+        medium = RoundedCornerShape(18.dp),
+        large = RoundedCornerShape(26.dp),
+    )) {
         when {
+            !onboardingComplete -> OnboardingScreen {
+                preferences.edit().putBoolean("onboarding_complete", true).apply()
+                onboardingComplete = true
+            }
             loading -> Column(
                 Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
@@ -227,23 +268,17 @@ private fun ZweiCheckApp(activity: MainActivity) {
             )
 
             else -> Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
-                    NavigationBar {
-                        NavigationBarItem(selected = tab == Tab.HOME, onClick = { tab = Tab.HOME }, icon = { Text("⌂") }, label = { Text("Start") })
-                        NavigationBarItem(selected = tab == Tab.CHECKS, onClick = { tab = Tab.CHECKS }, icon = { Text("✓") }, label = { Text("Prüfen") })
-                        NavigationBarItem(selected = tab == Tab.TRUST, onClick = { tab = Tab.TRUST }, icon = { Text("◎") }, label = { Text("Personen") })
-                        NavigationBarItem(selected = tab == Tab.ACCOUNT, onClick = { tab = Tab.ACCOUNT }, icon = { Text("●") }, label = { Text("Konto") })
+                    NavigationBar(containerColor = Color.White, tonalElevation = 10.dp) {
+                        AppNavItem(tab == Tab.HOME, { tab = Tab.HOME }, Icons.Default.Home, "Start")
+                        AppNavItem(tab == Tab.CHECKS, { tab = Tab.CHECKS }, Icons.Default.VerifiedUser, "Prüfungen")
+                        AppNavItem(tab == Tab.TRUST, { tab = Tab.TRUST }, Icons.Default.Groups, "Personen")
+                        AppNavItem(tab == Tab.ACCOUNT, { tab = Tab.ACCOUNT }, Icons.Default.AccountCircle, "Konto")
                     }
                 },
             ) { padding ->
-                Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("ZweiCheck", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Text(user?.name.orEmpty(), style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text(if (billing.isPremiumFamily) "Premium Familie" else "Kostenlos", style = MaterialTheme.typography.labelMedium)
-                    }
+                Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
                     message?.let { Text(it, modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error) }
                     billing.statusMessage?.let { status ->
                         Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
@@ -254,7 +289,7 @@ private fun ZweiCheckApp(activity: MainActivity) {
                         }
                     }
                     when (tab) {
-                        Tab.HOME -> HomeScreen(checks, trust, billing.isPremiumFamily, onNewCheck = { creating = true }, onPremium = { tab = Tab.ACCOUNT })
+                        Tab.HOME -> HomeScreen(user!!, checks, trust, billing.isPremiumFamily, onNewCheck = { creating = true }, onPremium = { tab = Tab.ACCOUNT })
                         Tab.CHECKS -> ChecksScreen(
                             checks = checks,
                             currentUserId = user!!.id,
@@ -310,6 +345,92 @@ private fun ZweiCheckApp(activity: MainActivity) {
 }
 
 @Composable
+private fun AppNavItem(selected: Boolean, onClick: () -> Unit, icon: ImageVector, label: String) {
+    Surface(onClick = onClick, color = if (selected) Teal.copy(alpha = 0.12f) else Color.Transparent, shape = RoundedCornerShape(18.dp), modifier = Modifier.width(88.dp).padding(vertical = 5.dp)) {
+        Column(Modifier.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = label, tint = if (selected) Teal else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, color = if (selected) Teal else MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private data class IntroPage(val icon: ImageVector, val title: String, val text: String, val color: Color)
+
+@Composable
+private fun OnboardingScreen(onComplete: () -> Unit) {
+    val pages = remember {
+        listOf(
+            IntroPage(Icons.Default.VerifiedUser, "Erst prüfen. Dann handeln.", "ZweiCheck gibt dir einen einfachen zweiten Blick, wenn eine Nachricht, Zahlung, Webseite oder Anfrage komisch wirkt.", Teal),
+            IntroPage(Icons.Default.Groups, "1. Vertrauensperson verbinden", "Verbinde jemanden, den du wirklich kennst. Diese Person bekommt deine Prüfanfrage direkt in ZweiCheck.", Navy),
+            IntroPage(Icons.Default.AddPhotoAlternate, "2. Verdächtiges teilen", "Beschreibe kurz, worum es geht. Bilder und Inhalte kannst du direkt aus anderen Apps an ZweiCheck übergeben.", Orange),
+            IntroPage(Icons.Default.Notifications, "3. Antwort bekommen", "Sobald deine Vertrauensperson antwortet, informiert dich ZweiCheck und öffnet die passende Prüfung.", Color(0xFF23866B)),
+        )
+    }
+    var page by remember { mutableStateOf(0) }
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        if (page < pages.size) {
+            val item = pages[page]
+            Column(Modifier.fillMaxSize().statusBarsPadding().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { page = pages.size }) { Text("Überspringen", color = Navy, fontWeight = FontWeight.SemiBold) }
+                }
+                Spacer(Modifier.weight(1f))
+                Surface(color = item.color, shape = RoundedCornerShape(34.dp), shadowElevation = 14.dp) {
+                    Icon(item.icon, null, tint = Color.White, modifier = Modifier.padding(30.dp).size(72.dp))
+                }
+                Text(item.title, fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold, color = Navy, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 28.dp))
+                Text(item.text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, lineHeight = 25.sp, modifier = Modifier.padding(top = 14.dp, start = 8.dp, end = 8.dp))
+                Spacer(Modifier.weight(1f))
+                PageDots(pages.size + 1, page)
+                PrimaryAction("Weiter", onClick = { page++ }, modifier = Modifier.padding(top = 22.dp))
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item { Text("Du entscheidest", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Navy) }
+                item { Text("Die Grundfunktion bleibt kostenlos. Premium Familie ist optional und kann später im Konto aktiviert werden.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { PlanCard("Kostenlos", "Alles für den einfachen zweiten Blick", Icons.Default.Shield, Navy, listOf("Prüfanfragen senden und beantworten", "1 Bild pro Prüfung", "Push-Benachrichtigungen", "Vertrauenspersonen und Aktivitäten")) }
+                item { PlanCard("Premium Familie", "Optional – später aktivierbar", Icons.Default.Groups, TealBright, listOf("Bis zu 3 Bilder pro Prüfung", "Automatische Erinnerungen", "Zweite Vertrauensperson fragen", "Google-Play-Familienbibliothek")) }
+                item { PrimaryAction("Kostenlos starten", onComplete) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageDots(total: Int, selected: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(total) { index ->
+            Surface(color = if (index == selected) TealBright else Color(0xFFC6D0D8), shape = RoundedCornerShape(8.dp), modifier = Modifier.width(if (index == selected) 24.dp else 8.dp).height(8.dp)) {}
+        }
+    }
+}
+
+@Composable
+private fun PlanCard(title: String, subtitle: String, icon: ImageVector, accent: Color, features: List<String>) {
+    AppCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = accent, shape = RoundedCornerShape(13.dp)) { Icon(icon, null, tint = Color.White, modifier = Modifier.padding(11.dp).size(26.dp)) }
+            Column(Modifier.padding(start = 12.dp)) { Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        features.forEach { Text("✓  $it", fontWeight = FontWeight.SemiBold, color = Navy, modifier = Modifier.padding(top = 9.dp)) }
+    }
+}
+
+@Composable
+private fun AppCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+        Column(Modifier.padding(18.dp), content = content)
+    }
+}
+
+@Composable
+private fun PrimaryAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    Button(onClick = onClick, enabled = enabled, modifier = modifier.fillMaxWidth().height(58.dp), shape = RoundedCornerShape(16.dp)) {
+        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
 private fun AuthScreen(
     message: String?,
     onLogin: (String, String) -> Unit,
@@ -320,26 +441,35 @@ private fun AuthScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.Center) {
-        Text("ZweiCheck", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-        Text("Gemeinsam prüfen. Sicher handeln.", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(24.dp))
-        if (register) OutlinedTextField(name, { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(email, { email = it }, label = { Text("E-Mail") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(password, { password = it }, label = { Text("Passwort") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spacer(Modifier.weight(0.6f))
+        Surface(color = Teal, shape = RoundedCornerShape(24.dp), shadowElevation = 10.dp) { Icon(Icons.Default.VerifiedUser, null, tint = Color.White, modifier = Modifier.padding(20.dp).size(52.dp)) }
+        Text("ZweiCheck", style = MaterialTheme.typography.displaySmall, color = Navy, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
+        Text("Gemeinsam prüfen. Sicher handeln.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().padding(top = 28.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { register = false }, modifier = Modifier.weight(1f)) { Text("Anmelden", fontWeight = if (!register) FontWeight.Bold else FontWeight.Normal) }
+            OutlinedButton(onClick = { register = true }, modifier = Modifier.weight(1f)) { Text("Konto erstellen", fontWeight = if (register) FontWeight.Bold else FontWeight.Normal) }
+        }
+        if (register) OutlinedTextField(name, { name = it }, label = { Text("Dein Name") }, modifier = Modifier.fillMaxWidth().padding(top = 14.dp), singleLine = true)
+        OutlinedTextField(email, { email = it }, label = { Text("E-Mail-Adresse") }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true)
+        OutlinedTextField(password, { password = it }, label = { Text("Passwort") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true)
+        if (register) Text("Mindestens 10 Zeichen, Buchstaben und mindestens eine Zahl.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
         message?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
-        Button(
+        PrimaryAction(
+            label = if (register) "Konto erstellen" else "Anmelden",
             onClick = { if (register) onRegister(name, email, password) else onLogin(email, password) },
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            modifier = Modifier.padding(top = 16.dp),
             enabled = email.isNotBlank() && password.isNotBlank() && (!register || name.isNotBlank()),
-        ) { Text(if (register) "Konto erstellen" else "Anmelden") }
-        TextButton(onClick = { register = !register }) { Text(if (register) "Schon ein Konto? Anmelden" else "Noch kein Konto? Registrieren") }
+        )
         if (!register) TextButton(onClick = { if (email.isNotBlank()) onReset(email) }) { Text("Passwort vergessen") }
+        Spacer(Modifier.weight(1f))
+        Text("Datenschutz · ZweiCheck", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun HomeScreen(
+    user: User,
     checks: List<CheckItem>,
     trust: TrustRouting?,
     premium: Boolean,
@@ -347,29 +477,44 @@ private fun HomeScreen(
     onPremium: () -> Unit,
 ) {
     val open = checks.count { it.status != "closed" }
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-        Text("Bevor du zahlst, klickst oder Daten weitergibst.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Frag eine Person, der du vertraust.", modifier = Modifier.padding(top = 8.dp, bottom = 24.dp))
-        Button(onClick = onNewCheck, modifier = Modifier.fillMaxWidth(), enabled = !trust?.connections.isNullOrEmpty()) { Text("Ich bin unsicher – prüfen lassen") }
-        if (trust?.connections.isNullOrEmpty()) Text("Verbinde zuerst eine Vertrauensperson.", modifier = Modifier.padding(top = 8.dp))
-        Card(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-            Column(Modifier.padding(18.dp)) {
-                Text("Aktuell", fontWeight = FontWeight.Bold)
-                Text("$open offene Prüfanfragen")
-                Text("${trust?.connections?.size ?: 0} Vertrauenspersonen")
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 24.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+      item {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) { Text("Hallo ${user.name}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Navy); Text("Wenn dir etwas komisch vorkommt, frag erst jemanden, dem du vertraust.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp)) }
+            IconButton(onClick = {}) { Icon(Icons.Default.Notifications, "Aktivitäten", tint = Navy) }
+        }
+      }
+      item {
+        Surface(color = Teal.copy(alpha = 0.11f), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp)) {
+                Icon(Icons.Default.Security, null, tint = Teal, modifier = Modifier.size(34.dp))
+                Text("Bevor du zahlst, klickst oder Daten weitergibst", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Navy, modifier = Modifier.padding(top = 12.dp))
+                Text("ZweiCheck holt den zweiten Blick einer vertrauten Person.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
             }
         }
+      }
+      item {
+        PrimaryAction("Ich bin unsicher – prüfen lassen", onNewCheck, enabled = !trust?.connections.isNullOrEmpty())
+        if (trust?.connections.isNullOrEmpty()) Text("Verbinde zuerst eine Vertrauensperson.", modifier = Modifier.padding(top = 8.dp))
+      }
+      item { AppCard { Text("Aktuell", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.SpaceAround) { Stat("$open", "offen"); Stat("${trust?.connections?.size ?: 0}", "Personen") } } }
+      item {
+        checks.firstOrNull()?.let { newest -> AppCard { Text("Letzte Prüfung", fontWeight = FontWeight.Bold); Text(newest.categoryLabel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp)); Text(newest.statusLabel, color = if (newest.status == "open" || newest.status == "pending") Orange else Teal, fontWeight = FontWeight.SemiBold) } }
+      }
         if (!premium) {
-            Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                Column(Modifier.padding(18.dp)) {
+          item {
+            AppCard {
                     Text("Premium Familie", fontWeight = FontWeight.Bold)
                     Text("Bis zu 3 Bilder, Erinnerungen und automatische zweite Vertrauensperson.")
                     TextButton(onClick = onPremium) { Text("Premium ansehen") }
-                }
             }
+          }
         }
     }
 }
+
+@Composable
+private fun Stat(value: String, label: String) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Teal); Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
 
 @Composable
 private fun ChecksScreen(
@@ -379,26 +524,32 @@ private fun ChecksScreen(
     onRespond: (CheckItem, Recommendation) -> Unit,
 ) {
     if (checks.isEmpty()) {
-        Text("Noch keine Prüfanfragen.", modifier = Modifier.padding(top = 24.dp))
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(color = Teal.copy(alpha = 0.12f), shape = RoundedCornerShape(24.dp)) { Icon(Icons.Default.VerifiedUser, null, tint = Teal, modifier = Modifier.padding(22.dp).size(52.dp)) }
+            Text("Noch keine Prüfungen", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Navy, modifier = Modifier.padding(top = 18.dp))
+            Text("Gesendete und erhaltene Prüfanfragen erscheinen hier.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, start = 28.dp, end = 28.dp))
+        }
         return
     }
     val ordered = checks.sortedWith(compareByDescending<CheckItem> { it.id == highlightedCheckId }.thenByDescending { it.createdAt })
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 16.dp)) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 24.dp, bottom = 28.dp)) {
+        item { Text("Prüfungen", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Navy) }
         items(ordered, key = { it.id }) { check ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
+            AppCard {
                     if (check.id == highlightedCheckId) Text("Aus Benachrichtigung geöffnet", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                    Text(check.categoryLabel, fontWeight = FontWeight.Bold)
-                    Text(check.description, modifier = Modifier.padding(vertical = 6.dp))
-                    Text("${check.requesterName} → ${check.reviewerName} · ${check.statusLabel}", style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(color = if (check.status == "open" || check.status == "pending") Orange.copy(alpha = 0.12f) else Teal.copy(alpha = 0.12f), shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.Shield, null, tint = if (check.status == "open" || check.status == "pending") Orange else Teal, modifier = Modifier.padding(9.dp).size(23.dp)) }
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) { Text(check.categoryLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(check.statusLabel, color = if (check.status == "open" || check.status == "pending") Orange else Teal, fontWeight = FontWeight.Bold) }
+                    }
+                    Text(check.description, modifier = Modifier.padding(vertical = 12.dp), maxLines = 3)
+                    Text(if (check.requesterId == currentUserId) "Bei ${check.reviewerName}" else "Von ${check.requesterName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (check.reviewerId == currentUserId && check.status != "responded" && check.status != "closed") {
                         Spacer(Modifier.height(10.dp))
                         Recommendation.entries.forEach { recommendation ->
-                            OutlinedButton(onClick = { onRespond(check, recommendation) }, modifier = Modifier.fillMaxWidth()) { Text(recommendation.label) }
+                            OutlinedButton(onClick = { onRespond(check, recommendation) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text(recommendation.label, fontWeight = FontWeight.Bold) }
                         }
                     }
                     check.recommendationLabel?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
-                }
             }
         }
     }
@@ -408,33 +559,47 @@ private fun ChecksScreen(
 private fun TrustScreen(trust: TrustRouting?, onPresence: (String) -> Unit, onInvite: (String?) -> Unit, onAccept: (String) -> Unit) {
     var email by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 16.dp)) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 24.dp, bottom = 28.dp)) {
+        item { Text("Personen", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Navy) }
         item {
-            Text("Meine Verfügbarkeit", fontWeight = FontWeight.Bold)
-            Text(trust?.selfPresence?.label ?: "Keine Angabe")
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
-                OutlinedButton(onClick = { onPresence("available") }) { Text("Verfügbar") }
-                OutlinedButton(onClick = { onPresence("urgent_only") }) { Text("Nur dringend") }
+          AppCard {
+            Text("Wann kannst du helfen?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(trust?.selfPresence?.label ?: "Keine Angabe", color = Teal, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 10.dp)) {
+                PresenceButton("Ja, ich kann helfen", "available", trust, onPresence)
+                PresenceButton("Nur wenn es dringend ist", "urgent_only", trust, onPresence)
+                PresenceButton("Gerade nicht", "unavailable", trust, onPresence)
             }
-            OutlinedButton(onClick = { onPresence("unavailable") }) { Text("Gerade nicht") }
+          }
         }
-        item { Text("Vertrauenspersonen", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)) }
+        item { Text("Deine Vertrauenspersonen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp)) }
         items(trust?.connections.orEmpty(), key = { it.connectionId }) { connection ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
+            AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) { Surface(color = Navy.copy(alpha = 0.09f), shape = RoundedCornerShape(14.dp)) { Icon(Icons.Default.Person, null, tint = Navy, modifier = Modifier.padding(10.dp)) }; Column(Modifier.padding(start = 12.dp)) {
                     Text(connection.person.name, fontWeight = FontWeight.Bold)
                     Text(connection.person.email)
-                    Text(connection.presence.label, style = MaterialTheme.typography.bodySmall)
-                }
+                    Text(connection.presence.label, style = MaterialTheme.typography.bodySmall, color = Teal)
+                    } }
             }
         }
         item {
-            Text("Einladen", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
-            OutlinedTextField(email, { email = it }, label = { Text("E-Mail (optional)") }, modifier = Modifier.fillMaxWidth())
-            Button(onClick = { onInvite(email.takeIf { it.isNotBlank() }) }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) { Text("Einladung erstellen") }
+          AppCard {
+            Text("Person einladen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Ohne E-Mail erzeugt ZweiCheck einen Code, den du selbst teilen kannst.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 5.dp))
+            OutlinedTextField(email, { email = it }, label = { Text("E-Mail optional") }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true)
+            PrimaryAction("Einladung erstellen", { onInvite(email.takeIf { it.isNotBlank() }) }, modifier = Modifier.padding(top = 10.dp))
             OutlinedTextField(code, { code = it }, label = { Text("Einladungscode") }, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
-            OutlinedButton(onClick = { if (code.isNotBlank()) onAccept(code) }, modifier = Modifier.fillMaxWidth()) { Text("Code annehmen") }
+            OutlinedButton(onClick = { if (code.isNotBlank()) onAccept(code) }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp)) { Text("Code annehmen", fontWeight = FontWeight.Bold) }
+          }
         }
+    }
+}
+
+@Composable
+private fun PresenceButton(label: String, status: String, trust: TrustRouting?, onPresence: (String) -> Unit) {
+    val selected = trust?.selfPresence?.status == status
+    OutlinedButton(onClick = { onPresence(status) }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
+        Icon(if (selected) Icons.Default.CheckCircle else Icons.Default.AccountCircle, null, tint = if (selected) Teal else Navy, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, modifier = Modifier.weight(1f)); if (selected) Text("✓", color = Teal)
     }
 }
 
@@ -449,6 +614,7 @@ private fun NewCheckScreen(
     onCreate: (String, String?, String, String, String?, String, Int?, Boolean, List<UploadImage>) -> Unit,
 ) {
     val imageLimit = if (isPremiumFamily) 3 else 1
+    var step by remember { mutableStateOf(1) }
     var reviewerId by remember { mutableStateOf(trust?.connections?.firstOrNull()?.person?.id.orEmpty()) }
     var fallbackReviewerId by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("message") }
@@ -472,41 +638,49 @@ private fun NewCheckScreen(
         images = uris.take(imageLimit).mapNotNull(activity::readUploadImage)
     }
 
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Neue Prüfanfrage", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(if (isPremiumFamily) "Premium Familie" else "Kostenlos · 1 Bild")
-                }
-                TextButton(onClick = onCancel) { Text("Abbrechen") }
-            }
-        }
-        item { Text("1. Wer soll dir helfen?", fontWeight = FontWeight.Bold) }
-        items(trust?.connections.orEmpty(), key = { it.connectionId }) { connection ->
-            OutlinedButton(onClick = { reviewerId = connection.person.id }, modifier = Modifier.fillMaxWidth()) {
-                Text((if (reviewerId == connection.person.id) "✓ " else "") + connection.person.name)
+                IconButton(onClick = { if (step > 1) step-- else onCancel() }) { Icon(Icons.Default.ArrowBack, "Zurück") }
+                Text("Prüfen lassen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Navy)
+                TextButton(onClick = onCancel) { Text("Schließen") }
             }
         }
         item {
-            Text("2. Worum geht es?", fontWeight = FontWeight.Bold)
-            listOf("message" to "Nachricht", "payment" to "Zahlung", "link" to "Link", "data" to "Daten").forEach { (wire, label) ->
-                TextButton(onClick = { category = wire }) { Text((if (category == wire) "✓ " else "") + label) }
-            }
+            LinearProgressIndicator(progress = { step / 4f }, modifier = Modifier.fillMaxWidth().height(7.dp), color = Teal, trackColor = Color(0xFFDCE5E9))
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Schritt $step von 4", color = Teal, fontWeight = FontWeight.Bold); Text(if (isPremiumFamily) "PREMIUM FAMILIE" else "KOSTENLOS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Navy) }
         }
-        item {
-            Text("3. Was ist passiert?", fontWeight = FontWeight.Bold)
-            OutlinedTextField(description, { description = it }, label = { Text("Beschreibung") }, modifier = Modifier.fillMaxWidth(), minLines = 4)
-            if (category == "payment") OutlinedTextField(amount, { amount = it }, label = { Text("Betrag (optional)") }, modifier = Modifier.fillMaxWidth())
-            OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Bilder auswählen (${images.size}/$imageLimit)") }
+        if (step == 1) {
+          item { Text("Wer soll dir helfen?", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Navy); Text("Wähle eine Person, die du kennst und der du vertraust.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+          items(trust?.connections.orEmpty(), key = { it.connectionId }) { connection ->
+            SelectionCard(reviewerId == connection.person.id, { reviewerId = connection.person.id }) {
+                Column(Modifier.weight(1f)) { Text(connection.person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(connection.presence.label, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+          }
+        }
+        if (step == 2) {
+          item { Text("Worum geht es?", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Navy) }
+          items(listOf("message" to "Nachricht", "payment" to "Zahlung", "link" to "Link oder Webseite", "data" to "Persönliche Daten")) { (wire, label) ->
+            SelectionCard(category == wire, { category = wire }) { Icon(Icons.Default.Security, null, tint = if (category == wire) Teal else Navy); Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(start = 12.dp)) }
+          }
+        }
+        if (step == 3) {
+          item {
+            Text("Was ist passiert?", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Navy)
+            Text("Beschreibe kurz, warum du unsicher bist. Keine Passwörter oder TANs eingeben.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            OutlinedTextField(description, { description = it }, label = { Text("Deine Beschreibung") }, modifier = Modifier.fillMaxWidth().padding(top = 14.dp), minLines = 5, shape = RoundedCornerShape(16.dp))
+            OutlinedTextField(amount, { amount = it }, label = { Text("Betrag – optional") }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true, shape = RoundedCornerShape(14.dp))
+            OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth().height(54.dp).padding(top = 8.dp), shape = RoundedCornerShape(14.dp)) { Icon(Icons.Default.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text(if (images.isEmpty()) "Bild auswählen – optional" else "Bilder ändern (${images.size}/$imageLimit)", fontWeight = FontWeight.Bold) }
             if (!isPremiumFamily) {
-                Text("Kostenlos ist 1 Bild möglich. Premium Familie erlaubt bis zu 3 Bilder pro Prüfung.")
+                Text("Kostenlos ist 1 Bild möglich. Premium Familie erlaubt bis zu 3 Bilder pro Prüfung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                 TextButton(onClick = onOpenPremium) { Text("Premium Familie ansehen") }
             }
+          }
         }
-        item {
-            Text("4. Alles richtig?", fontWeight = FontWeight.Bold)
-            Text("Wie dringend ist es?")
+        if (step == 4) item {
+            Text("Alles richtig?", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Navy)
+            AppCard(Modifier.padding(top = 8.dp)) { Text("Vertrauensperson", fontWeight = FontWeight.Bold); Text(trust?.connections?.firstOrNull { it.person.id == reviewerId }?.person?.name ?: "–"); Text("Thema", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)); Text(listOf("message" to "Nachricht", "payment" to "Zahlung", "link" to "Link oder Webseite", "data" to "Persönliche Daten").first { it.first == category }.second); Text("Beschreibung", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)); Text(description) }
+            Text("Wie dringend ist es?", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = { urgency = "none" }) { Text((if (urgency == "none") "✓ " else "") + "Normal") }
                 OutlinedButton(onClick = { urgency = "high" }) { Text((if (urgency == "high") "✓ " else "") + "Dringend") }
@@ -532,21 +706,26 @@ private fun NewCheckScreen(
                     OutlinedButton(onClick = { autoReroute = !autoReroute }, modifier = Modifier.fillMaxWidth()) { Text((if (autoReroute) "✓ " else "") + "Danach automatisch die zweite Person fragen") }
                 }
             } else {
-                Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Column(Modifier.padding(14.dp)) {
+                AppCard(Modifier.padding(vertical = 8.dp)) {
                         Text("PREMIUM · Wenn niemand antwortet", fontWeight = FontWeight.Bold)
                         Text("Erinnerungen und automatische zweite Vertrauensperson sind Teil von Premium Familie.")
                         TextButton(onClick = onOpenPremium) { Text("Premium freischalten") }
-                    }
                 }
             }
-
-            Button(
-                onClick = { onCreate(reviewerId, fallbackReviewerId.takeIf { isPremiumFamily && it.isNotBlank() }, category, description, amount.takeIf { it.isNotBlank() }, urgency, reminderMinutes.takeIf { isPremiumFamily && it > 0 }, isPremiumFamily && autoReroute, images.take(imageLimit)) },
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                enabled = reviewerId.isNotBlank() && description.trim().length >= 5,
-            ) { Text("Jetzt sicher prüfen lassen") }
         }
+        item {
+            val canContinue = when (step) { 1 -> reviewerId.isNotBlank(); 3 -> description.trim().length >= 5; else -> true }
+            PrimaryAction(if (step == 4) "Jetzt sicher prüfen lassen" else "Weiter", {
+                if (step < 4) step++ else onCreate(reviewerId, fallbackReviewerId.takeIf { isPremiumFamily && it.isNotBlank() }, category, description, amount.takeIf { it.isNotBlank() }, urgency, reminderMinutes.takeIf { isPremiumFamily && it > 0 }, isPremiumFamily && autoReroute, images.take(imageLimit))
+            }, enabled = canContinue)
+        }
+    }
+}
+
+@Composable
+private fun SelectionCard(selected: Boolean, onClick: () -> Unit, content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = Color.White, border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Teal else Color(0xFFC6D0D8)), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) { content(); Icon(Icons.Default.CheckCircle, null, tint = if (selected) Teal else Color(0xFFC6D0D8), modifier = Modifier.size(24.dp)) }
     }
 }
 
