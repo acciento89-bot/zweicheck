@@ -8,8 +8,8 @@
         android:name=".ZweiCheckApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:icon="@drawable/zweicheck_app_icon"
+        android:roundIcon="@drawable/zweicheck_app_icon"
         android:label="ZweiCheck"
         android:theme="@style/Theme.ZweiCheck">
 
