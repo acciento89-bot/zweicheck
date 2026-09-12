@@ -16,9 +16,6 @@ env:
   EXPECTED_VERSION_CODE: '4'
   WIF_PROVIDER: projects/1058001477767/locations/global/workloadIdentityPools/github/providers/github-actions
   GOOGLE_SERVICE_ACCOUNT: navoops@emerald-caster-508318-f2.iam.gserviceaccount.com
-  STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
-  KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
-  KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
   ZWEICHECK_FIREBASE_PROJECT_ID: zweicheck
   ZWEICHECK_FIREBASE_APP_ID: 1:569737949733:android:b959136242819d9367c5cc
   ZWEICHECK_FIREBASE_API_KEY: AIzaSyDwY42Jur0Jw4vGLqN8DkMunDaHeRlgTQg
@@ -30,27 +27,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
+        with: {distribution: temurin, java-version: '17'}
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '9.5.0'}
+      - name: Restore upload identity from KMS vault
+        uses: acciento89-bot/maengelfix/.github/actions/restore-android-signing@main
         with:
-          gradle-version: '9.5.0'
-      - name: Restore upload key
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n '${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}'; test -n "$STORE_PASSWORD"; test -n "$KEY_ALIAS"; test -n "$KEY_PASSWORD"
-          printf '%s' '${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}' | base64 --decode > "$RUNNER_TEMP/upload.jks"
-      - name: Build and sign release bundle
+          app-id: zweicheck
+      - name: Build and verify signed release bundle
         shell: bash
         run: |
           set -euo pipefail
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
           gradle -p android bundleRelease --stacktrace
           AAB='android/app/build/outputs/bundle/release/app-release.aab'; test -s "$AAB"
-          jarsigner -keystore "$RUNNER_TEMP/upload.jks" -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" "$AAB" "$KEY_ALIAS"
+          if ! jarsigner -verify "$AAB" 2>/dev/null | grep -Fq 'jar verified.'; then jarsigner -keystore "$ANDROID_UPLOAD_KEYSTORE_PATH" -storepass "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" -keypass "$ANDROID_UPLOAD_KEY_PASSWORD" "$AAB" "$ANDROID_UPLOAD_KEY_ALIAS"; fi
           jarsigner -verify "$AAB" | grep -Fq 'jar verified.'
           grep -Fq 'versionCode = 4' android/app/build.gradle.kts
           echo "AAB_PATH=$AAB" >> "$GITHUB_ENV"
@@ -61,21 +53,36 @@ jobs:
           service_account: ${{ env.GOOGLE_SERVICE_ACCOUNT }}
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+      - name: Check whether version already exists
+        env: {TOKEN: '${{ steps.google-auth.outputs.access_token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api='https://androidpublisher.googleapis.com/androidpublisher/v3'
+          edit=$(curl -fsS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' "$api/applications/$PACKAGE_NAME/edits" | jq -r '.id')
+          bundles=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$api/applications/$PACKAGE_NAME/edits/$edit/bundles")
+          if jq -e --argjson code "$EXPECTED_VERSION_CODE" '.bundles | any(.versionCode == $code)' <<<"$bundles" >/dev/null; then echo 'ALREADY_PRESENT=true' >> "$GITHUB_ENV"; echo "$PACKAGE_NAME versionCode $EXPECTED_VERSION_CODE already exists in Google Play"; else echo 'ALREADY_PRESENT=false' >> "$GITHUB_ENV"; fi
+          curl -fsS -X DELETE -H "Authorization: Bearer $TOKEN" "$api/applications/$PACKAGE_NAME/edits/$edit" >/dev/null
       - name: Upload and verify Play bundle
-        env:
-          TOKEN: ${{ steps.google-auth.outputs.access_token }}
+        if: env.ALREADY_PRESENT != 'true'
+        env: {TOKEN: '${{ steps.google-auth.outputs.access_token }}'}
         shell: bash
         run: |
           set -euo pipefail
           api='https://androidpublisher.googleapis.com/androidpublisher/v3'; upload='https://androidpublisher.googleapis.com/upload/androidpublisher/v3'
           edit=$(curl -fsS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' "$api/applications/$PACKAGE_NAME/edits" | jq -r '.id')
           body=$(mktemp); status=$(curl -sS -o "$body" -w '%{http_code}' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/octet-stream' --data-binary "@$AAB_PATH" "$upload/applications/$PACKAGE_NAME/edits/$edit/bundles?uploadType=media")
-          if [[ "$status" != 200 ]]; then cat "$body" >&2; exit 1; fi
+          if [[ "$status" != 200 ]]; then cat "$body" >&2; curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" "$api/applications/$PACKAGE_NAME/edits/$edit" >/dev/null || true; exit 1; fi
           test "$(jq -r '.versionCode' "$body")" = "$EXPECTED_VERSION_CODE"
           body=$(mktemp); status=$(curl -sS -o "$body" -w '%{http_code}' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' "$api/applications/$PACKAGE_NAME/edits/$edit:commit")
-          if [[ "$status" != 2* ]]; then body=$(mktemp); status=$(curl -sS -o "$body" -w '%{http_code}' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' "$api/applications/$PACKAGE_NAME/edits/$edit:commit?changesNotSentForReview=true"); fi
           if [[ "$status" != 2* ]]; then cat "$body" >&2; exit 1; fi
           fresh=$(curl -fsS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' "$api/applications/$PACKAGE_NAME/edits" | jq -r '.id')
           curl -fsS -H "Authorization: Bearer $TOKEN" "$api/applications/$PACKAGE_NAME/edits/$fresh/bundles" | jq -e --argjson code "$EXPECTED_VERSION_CODE" '.bundles | any(.versionCode == $code)' >/dev/null
           curl -fsS -X DELETE -H "Authorization: Bearer $TOKEN" "$api/applications/$PACKAGE_NAME/edits/$fresh" >/dev/null
           echo "$PACKAGE_NAME versionCode $EXPECTED_VERSION_CODE uploaded and verified"
+      - name: Destroy restored signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/kamilunavo-upload.jks"
+          rm -rf "$RUNNER_TEMP/kamilunavo-signing-vault"
