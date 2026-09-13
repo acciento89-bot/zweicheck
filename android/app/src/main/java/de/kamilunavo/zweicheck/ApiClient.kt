@@ -41,6 +41,10 @@ class ApiClient(context: Context) {
         request("/api/auth/request-password-reset", "POST", JSONObject().put("email", email))
     }
 
+    suspend fun resendVerification() {
+        request("/api/auth/resend-verification", "POST")
+    }
+
     suspend fun checks(): List<CheckItem> {
         val array = request("/api/checks").getJSONArray("checks")
         return List(array.length()) { parseCheck(array.getJSONObject(it)) }
