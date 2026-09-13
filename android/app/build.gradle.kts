@@ -39,6 +39,7 @@ android {
         buildConfigField("String", "FIREBASE_API_KEY", quotedBuildConfig(firebaseApiKey))
     }
 
+    // The Compose rebuild must stay aligned with the SwiftUI flow and safe system-bar insets.
     buildFeatures {
         compose = true
         buildConfig = true
