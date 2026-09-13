@@ -7,15 +7,25 @@ set -euo pipefail
 
 readonly apk_path="$GITHUB_WORKSPACE/android/app/build/outputs/apk/debug/app-debug.apk"
 readonly output_dir="$GITHUB_WORKSPACE/$OUTPUT_DIR"
+readonly ui_dump="/sdcard/zweicheck-window.xml"
 
 current_focus() {
-  adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp" || true
+  local dump
+  local line
+  dump="$(adb shell dumpsys window windows)"
+  while IFS= read -r line; do
+    if [[ "$line" == *"mCurrentFocus="* ]]; then
+      printf '%s\n' "$line"
+      return 0
+    fi
+  done <<< "$dump"
+  return 0
 }
 
 wait_for_foreground() {
   local attempt
   local focus
-  for attempt in $(seq 1 30); do
+  for attempt in $(seq 1 45); do
     focus="$(current_focus)"
     if [[ "$focus" == *"$PACKAGE_NAME"* ]]; then
       return 0
@@ -27,18 +37,67 @@ wait_for_foreground() {
   return 1
 }
 
+dump_ui() {
+  adb shell uiautomator dump "$ui_dump" >/dev/null
+  adb shell cat "$ui_dump"
+}
+
+wait_for_text() {
+  local expected="$1"
+  local attempt
+  local ui
+  [[ -z "$expected" ]] && return 0
+  for attempt in $(seq 1 45); do
+    ui="$(dump_ui || true)"
+    if [[ "$ui" == *"$expected"* ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Timed out waiting for visible UI text: $expected" >&2
+  dump_ui >&2 || true
+  return 1
+}
+
+tap_text() {
+  local expected="$1"
+  local local_dump="$RUNNER_TEMP/zweicheck-window.xml"
+  local coordinates
+  adb shell uiautomator dump "$ui_dump" >/dev/null
+  adb pull "$ui_dump" "$local_dump" >/dev/null
+  coordinates="$(python3 - "$local_dump" "$expected" <<'PY'
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.parse(sys.argv[1]).getroot()
+expected = sys.argv[2]
+for node in root.iter("node"):
+    if node.attrib.get("text") == expected or node.attrib.get("content-desc") == expected:
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
+        if match:
+            left, top, right, bottom = map(int, match.groups())
+            print((left + right) // 2, (top + bottom) // 2)
+            raise SystemExit(0)
+raise SystemExit(f"Could not find tappable UI text: {expected}")
+PY
+)"
+  read -r tap_x tap_y <<< "$coordinates"
+  adb shell input tap "$tap_x" "$tap_y"
+}
+
 launch_app() {
   adb shell am force-stop "$PACKAGE_NAME"
-  adb shell am start -n "$PACKAGE_NAME/.MainActivity"
+  adb shell am start -W -n "$PACKAGE_NAME/.MainActivity"
   wait_for_foreground
-  sleep 8
+  wait_for_text "${WAIT_TEXT:-}"
 }
 
 assert_clean_foreground() {
   local focus
   focus="$(current_focus)"
   if [[ "$focus" != *"$PACKAGE_NAME"* ]]; then
-    echo "Expected $PACKAGE_NAME in the foreground; refusing to capture." >&2
+    echo "Expected $PACKAGE_NAME in mCurrentFocus; refusing to capture." >&2
     printf '%s\n' "$focus" >&2
     return 1
   fi
@@ -47,6 +106,7 @@ assert_clean_foreground() {
 mkdir -p "$output_dir"
 rm -f "$output_dir"/*.png
 adb install -r "$apk_path"
+adb shell settings put global hide_error_dialogs 1
 adb shell cmd locale set-app-locales "$PACKAGE_NAME" --user 0 de-DE
 launch_app
 assert_clean_foreground
@@ -54,7 +114,12 @@ adb exec-out screencap -p > "$output_dir/01-current-ui.png"
 
 case "$SECOND_ACTION" in
   tap)
-    adb shell input tap 540 2150
+    if [[ -n "${SECOND_TEXT:-}" ]]; then
+      wait_for_text "$SECOND_TEXT"
+      tap_text "$SECOND_TEXT"
+    else
+      adb shell input tap 540 2150
+    fi
     sleep 3
     ;;
   dark)
