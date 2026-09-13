@@ -1,0 +1,92 @@
+name: ZweiCheck iOS parity rebuild whitespace-safe
+
+on:
+  push:
+    branches:
+      - fix/android-ios-parity-20260913
+    paths:
+      - .github/workflows/zweicheck-ios-parity-rebuild-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/android-ios-parity-20260913
+          fetch-depth: 0
+
+      - name: Apply whitespace-safe parity transformation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+
+          wf = Path('.github/workflows/zweicheck-ios-parity-rebuild.yml').read_text()
+          start = wf.index("          python3 - <<'PY'\n") + len("          python3 - <<'PY'\n")
+          end = wf.index("\n          PY\n", start)
+          script = textwrap.dedent(wf[start:end])
+
+          api_section = re.compile(r"anchor = '''.*?api\.write_text\(a\)\n", re.S)
+          api_replacement = '''if 'suspend fun resendVerification()' not in a:
+              match = re.search(r'(    suspend fun requestPasswordReset\\(email: String\\) \\{.*?^    \\}\\n)', a, re.S | re.M)
+              if not match:
+                  raise SystemExit('ApiClient password reset method not found')
+              addition = match.group(1) + '\\n    suspend fun resendVerification() {\\n        request("/api/auth/resend-verification", "POST")\\n    }\\n'
+              a = a[:match.start()] + addition + a[match.end():]
+          api.write_text(a)
+          '''
+          script, count = api_section.subn(lambda _: api_replacement, script, count=1)
+          if count != 1:
+              raise SystemExit('Could not replace API section')
+
+          refresh_section = re.compile(r"refresh_old = '''.*?s = s\.replace\(refresh_old, refresh_new, 1\)\n", re.S)
+          refresh_replacement = '''if 'suspend fun refreshActivities' not in s:
+              match = re.search(r'    suspend fun refresh\\(\\) \\{.*?^    \\}\\n', s, re.S | re.M)
+              if not match:
+                  raise SystemExit('refresh method not found')
+              replacement = ''' + '"""' + '''    suspend fun refreshActivities(unreadOnly: Boolean = activityUnreadOnly) {
+                  runCatching { api.activities(if (unreadOnly) "unread" else "all") }
+                      .onSuccess {
+                          activities = it.activities
+                          unreadActivityCount = it.unreadCount
+                      }
+              }
+
+              suspend fun refresh() {
+                  checks = api.checks()
+                  trust = api.trustRouting()
+                  refreshActivities()
+              }
+          ''' + '"""' + '''
+              s = s[:match.start()] + replacement + s[match.end():]
+          '''
+          script, count = refresh_section.subn(lambda _: refresh_replacement, script, count=1)
+          if count != 1:
+              raise SystemExit('Could not replace refresh section')
+
+          exec(compile(script, 'zweicheck-ios-parity-rebuild-v3', 'exec'), {'__name__': '__main__'})
+          PY
+
+          grep -Fq 'enableEdgeToEdge' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'contentWindowInsets = WindowInsets.safeDrawing' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'Bitte bestätige deine E-Mail-Adresse' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'Aus dem Teilen-Menü übernommen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'private fun ActivityScreen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'suspend fun resendVerification' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
+          git diff --check
+
+      - name: Commit parity rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name Kamilunavo
+          git config user.email acciento89@gmail.com
+          git add android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
+          git commit -m 'feat(zweicheck): match Android home and activity flow to iOS'
+          git push origin HEAD:fix/android-ios-parity-20260913

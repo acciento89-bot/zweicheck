@@ -1,0 +1,59 @@
+name: ZweiCheck iOS parity rebuild retry
+
+on:
+  push:
+    branches:
+      - fix/android-ios-parity-20260913
+    paths:
+      - .github/workflows/zweicheck-ios-parity-rebuild-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/android-ios-parity-20260913
+          fetch-depth: 0
+
+      - name: Apply robust parity transformation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+
+          wf = Path('.github/workflows/zweicheck-ios-parity-rebuild.yml').read_text()
+          start = wf.index("          python3 - <<'PY'\n") + len("          python3 - <<'PY'\n")
+          end = wf.index("\n          PY\n", start)
+          script = textwrap.dedent(wf[start:end])
+
+          old = '''anchor = \'\'\'    suspend fun requestPasswordReset(email: String) {\n    request("/api/auth/request-password-reset", "POST", JSONObject().put("email", email))\n}\n\'\'\'\nif 'suspend fun resendVerification()' not in a:\n    replacement = anchor + \'\'\'\n    suspend fun resendVerification() {\n        request("/api/auth/resend-verification", "POST")\n    }\n\'\'\'\n    if anchor not in a:\n        raise SystemExit('ApiClient password reset anchor not found')\n    a = a.replace(anchor, replacement, 1)\napi.write_text(a)'''
+          new = '''if 'suspend fun resendVerification()' not in a:\n    match = re.search(r'(    suspend fun requestPasswordReset\\(email: String\\) \\{.*?^    \\}\\n)', a, re.S | re.M)\n    if not match:\n        raise SystemExit('ApiClient password reset method not found')\n    addition = match.group(1) + '\\n    suspend fun resendVerification() {\\n        request("/api/auth/resend-verification", "POST")\\n    }\\n'\n    a = a[:match.start()] + addition + a[match.end():]\napi.write_text(a)'''
+          if old not in script:
+              raise SystemExit('Original API patch block not found in workflow')
+          script = script.replace(old, new, 1)
+          exec(compile(script, 'zweicheck-ios-parity-rebuild-v2', 'exec'), {'__name__': '__main__'})
+          PY
+
+          grep -Fq 'enableEdgeToEdge' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'contentWindowInsets = WindowInsets.safeDrawing' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'Bitte bestätige deine E-Mail-Adresse' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'Aus dem Teilen-Menü übernommen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'private fun ActivityScreen' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
+          grep -Fq 'suspend fun resendVerification' android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
+          git diff --check
+
+      - name: Commit parity rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name Kamilunavo
+          git config user.email acciento89@gmail.com
+          git add android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt android/app/src/main/java/de/kamilunavo/zweicheck/ApiClient.kt
+          git commit -m 'feat(zweicheck): match Android home and activity flow to iOS'
+          git push origin HEAD:fix/android-ios-parity-20260913

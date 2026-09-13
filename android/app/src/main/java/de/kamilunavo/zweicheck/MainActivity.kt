@@ -6,7 +6,10 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Color as AndroidColor
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -17,10 +20,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -78,6 +83,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT),
+        )
         setContent { ZweiCheckApp(this) }
     }
 
@@ -121,6 +130,10 @@ private fun ZweiCheckApp(activity: MainActivity) {
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
     var sharedDraft by remember { mutableStateOf(extractSharedDraft(activity)) }
+    var activities by remember { mutableStateOf<List<ActivityItem>>(emptyList()) }
+    var unreadActivityCount by remember { mutableStateOf(0) }
+    var showActivities by remember { mutableStateOf(false) }
+    var activityUnreadOnly by remember { mutableStateOf(false) }
     val preferences = remember { activity.getSharedPreferences("zweicheck_ui", 0) }
     var onboardingComplete by remember { mutableStateOf(preferences.getBoolean("onboarding_complete", false)) }
 
@@ -148,9 +161,18 @@ private fun ZweiCheckApp(activity: MainActivity) {
         }
     }
 
+    suspend fun refreshActivities(unreadOnly: Boolean = activityUnreadOnly) {
+        runCatching { api.activities(if (unreadOnly) "unread" else "all") }
+            .onSuccess {
+                activities = it.activities
+                unreadActivityCount = it.unreadCount
+            }
+    }
+
     suspend fun refresh() {
         checks = api.checks()
         trust = api.trustRouting()
+        refreshActivities()
     }
 
     suspend fun refreshPushIfEnabled(currentUser: User?) {
@@ -233,7 +255,36 @@ private fun ZweiCheckApp(activity: MainActivity) {
                 },
             )
 
-            creating -> NewCheckScreen(
+            showActivities -> ActivityScreen(
+        activities = activities,
+        unreadCount = unreadActivityCount,
+        unreadOnly = activityUnreadOnly,
+        onClose = { showActivities = false },
+        onFilter = { unreadOnly ->
+            activityUnreadOnly = unreadOnly
+            scope.launch { refreshActivities(unreadOnly) }
+        },
+        onMarkAllRead = {
+            scope.launch {
+                runCatching { api.markAllActivitiesRead() }
+                    .onSuccess { refreshActivities() }
+                    .onFailure { message = it.message }
+            }
+        },
+        onOpen = { activityItem ->
+            scope.launch {
+                if (activityItem.isUnread) runCatching { api.markActivityRead(activityItem.id) }
+                activityItem.checkId?.let {
+                    highlightedCheckId = it
+                    tab = Tab.CHECKS
+                }
+                showActivities = false
+                refreshActivities()
+            }
+        },
+    )
+
+    creating -> NewCheckScreen(
                 activity = activity,
                 trust = trust,
                 isPremiumFamily = billing.isPremiumFamily,
@@ -269,6 +320,7 @@ private fun ZweiCheckApp(activity: MainActivity) {
 
             else -> Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
+                contentWindowInsets = WindowInsets.safeDrawing,
                 bottomBar = {
                     NavigationBar(containerColor = Color.White, tonalElevation = 10.dp) {
                         AppNavItem(tab == Tab.HOME, { tab = Tab.HOME }, Icons.Default.Home, "Start")
@@ -289,7 +341,22 @@ private fun ZweiCheckApp(activity: MainActivity) {
                         }
                     }
                     when (tab) {
-                        Tab.HOME -> HomeScreen(user!!, checks, trust, billing.isPremiumFamily, onNewCheck = { creating = true }, onPremium = { tab = Tab.ACCOUNT })
+                        Tab.HOME -> HomeScreen(
+                    user = user!!,
+                    checks = checks,
+                    trust = trust,
+                    sharedDraft = sharedDraft,
+                    unreadActivityCount = unreadActivityCount,
+                    onActivities = { showActivities = true },
+                    onNewCheck = { creating = true },
+                    onResendVerification = {
+                        scope.launch {
+                            runCatching { api.resendVerification() }
+                                .onSuccess { message = "Bestätigungs-E-Mail wurde erneut gesendet." }
+                                .onFailure { message = it.message }
+                        }
+                    },
+                )
                         Tab.CHECKS -> ChecksScreen(
                             checks = checks,
                             currentUserId = user!!.id,
@@ -472,43 +539,146 @@ private fun HomeScreen(
     user: User,
     checks: List<CheckItem>,
     trust: TrustRouting?,
-    premium: Boolean,
+    sharedDraft: ShareDraft?,
+    unreadActivityCount: Int,
+    onActivities: () -> Unit,
     onNewCheck: () -> Unit,
-    onPremium: () -> Unit,
+    onResendVerification: () -> Unit,
 ) {
-    val open = checks.count { it.status != "closed" }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 24.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-      item {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) { Text("Hallo ${user.name}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Navy); Text("Wenn dir etwas komisch vorkommt, frag erst jemanden, dem du vertraust.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp)) }
-            IconButton(onClick = {}) { Icon(Icons.Default.Notifications, "Aktivitäten", tint = Navy) }
-        }
-      }
-      item {
-        Surface(color = Teal.copy(alpha = 0.11f), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp)) {
-                Icon(Icons.Default.Security, null, tint = Teal, modifier = Modifier.size(34.dp))
-                Text("Bevor du zahlst, klickst oder Daten weitergibst", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Navy, modifier = Modifier.padding(top = 12.dp))
-                Text("ZweiCheck holt den zweiten Blick einer vertrauten Person.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 24.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
+    ) {
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Hallo ${user.name}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Navy)
+                    Text(
+                        "Wenn dir etwas komisch vorkommt, frag erst eine Person, der du vertraust.",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+                Box(contentAlignment = Alignment.TopEnd) {
+                    IconButton(onClick = onActivities) { Icon(Icons.Default.Notifications, "Aktivitäten", tint = Navy) }
+                    if (unreadActivityCount > 0) {
+                        Surface(color = Color(0xFFC33D42), shape = RoundedCornerShape(20.dp)) {
+                            Text(
+                                if (unreadActivityCount > 99) "99+" else unreadActivityCount.toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                }
             }
         }
-      }
-      item {
-        PrimaryAction("Ich bin unsicher – prüfen lassen", onNewCheck, enabled = !trust?.connections.isNullOrEmpty())
-        if (trust?.connections.isNullOrEmpty()) Text("Verbinde zuerst eine Vertrauensperson.", modifier = Modifier.padding(top = 8.dp))
-      }
-      item { AppCard { Text("Aktuell", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.SpaceAround) { Stat("$open", "offen"); Stat("${trust?.connections?.size ?: 0}", "Personen") } } }
-      item {
-        checks.firstOrNull()?.let { newest -> AppCard { Text("Letzte Prüfung", fontWeight = FontWeight.Bold); Text(newest.categoryLabel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp)); Text(newest.statusLabel, color = if (newest.status == "open" || newest.status == "pending") Orange else Teal, fontWeight = FontWeight.SemiBold) } }
-      }
-        if (!premium) {
-          item {
-            AppCard {
-                    Text("Premium Familie", fontWeight = FontWeight.Bold)
-                    Text("Bis zu 3 Bilder, Erinnerungen und automatische zweite Vertrauensperson.")
-                    TextButton(onClick = onPremium) { Text("Premium ansehen") }
+
+        if (!user.emailVerified) {
+            item {
+                Surface(color = Orange.copy(alpha = 0.12f), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Bitte bestätige deine E-Mail-Adresse", fontWeight = FontWeight.Bold, color = Navy)
+                        Text("Danach kannst du Prüfanfragen senden und beantworten.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(onClick = onResendVerification) { Text("E-Mail erneut senden", fontWeight = FontWeight.Bold) }
+                    }
+                }
             }
-          }
+        }
+
+        if (sharedDraft != null) {
+            item {
+                Surface(color = Teal.copy(alpha = 0.10f), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Aus dem Teilen-Menü übernommen", fontWeight = FontWeight.Bold, color = Navy)
+                        Text("Der Inhalt ist vorbereitet. Wähle nur noch deine Vertrauensperson und prüfe alles vor dem Absenden.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(onClick = onNewCheck) { Text("Entwurf jetzt prüfen", fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
+        }
+
+        item {
+            PrimaryAction(
+                "Ich bin unsicher – prüfen lassen",
+                onNewCheck,
+                enabled = !trust?.connections.isNullOrEmpty() && user.emailVerified,
+            )
+            if (trust?.connections.isNullOrEmpty()) {
+                Text(
+                    "Verbinde zuerst unter „Personen“ jemanden, dem du vertraust.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        }
+
+        checks.firstOrNull()?.let { newest ->
+            item {
+                AppCard {
+                    Text("Letzte Prüfung", fontWeight = FontWeight.Bold)
+                    Text(newest.categoryLabel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                    Text(
+                        if (newest.status == "open" || newest.status == "pending") "Wartet auf Rückmeldung" else newest.recommendationLabel ?: "Beantwortet",
+                        color = if (newest.status == "open" || newest.status == "pending") Orange else Teal,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityScreen(
+    activities: List<ActivityItem>,
+    unreadCount: Int,
+    unreadOnly: Boolean,
+    onClose: () -> Unit,
+    onFilter: (Boolean) -> Unit,
+    onMarkAllRead: () -> Unit,
+    onOpen: (ActivityItem) -> Unit,
+) {
+    Surface(color = AppBackground, modifier = Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 20.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onClose) { Text("Schließen") }
+                Text("Aktivitäten", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Navy)
+                if (unreadCount > 0) TextButton(onClick = onMarkAllRead) { Text("Alle gelesen") }
+                else Spacer(Modifier.width(76.dp))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onFilter(false) }, modifier = Modifier.weight(1f)) { Text("Alle", fontWeight = if (!unreadOnly) FontWeight.Bold else FontWeight.Normal) }
+                OutlinedButton(onClick = { onFilter(true) }, modifier = Modifier.weight(1f)) { Text("Ungelesen", fontWeight = if (unreadOnly) FontWeight.Bold else FontWeight.Normal) }
+            }
+            if (activities.isEmpty()) {
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Notifications, null, tint = Teal, modifier = Modifier.size(48.dp))
+                    Text(if (unreadOnly) "Keine ungelesenen Aktivitäten" else "Noch keine Aktivitäten", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Navy, modifier = Modifier.padding(top = 14.dp))
+                    Text("Neue Prüfanfragen, Antworten, Erinnerungen und Einladungen erscheinen hier.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, start = 20.dp, end = 20.dp))
+                }
+            } else {
+                LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(activities, key = { it.id }) { activityItem ->
+                        Surface(onClick = { onOpen(activityItem) }, color = Color.White, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Default.Notifications, null, tint = if (activityItem.isUnread) Teal else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(26.dp))
+                                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(activityItem.title, fontWeight = FontWeight.Bold, color = Navy, modifier = Modifier.weight(1f))
+                                        if (activityItem.isUnread) Surface(color = Teal, shape = RoundedCornerShape(5.dp), modifier = Modifier.size(9.dp)) {}
+                                    }
+                                    Text(activityItem.body, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 5.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
