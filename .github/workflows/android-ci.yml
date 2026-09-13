@@ -7,11 +7,13 @@ on:
       - 'android/**'
     paths:
       - 'android/**'
+      - 'ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png'
       - 'store/google-play/**'
       - '.github/workflows/android-ci.yml'
   pull_request:
     paths:
       - 'android/**'
+      - 'ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png'
       - 'store/google-play/**'
       - '.github/workflows/android-ci.yml'
   workflow_dispatch:
@@ -30,41 +32,28 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - name: Install Android 16 SDK and Play icon renderer
+      - name: Install Android 16 SDK
         run: |
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq librsvg2-bin
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.5.0'
-      - name: Verify canonical launcher and Play icon identity
+      - name: Verify exact iOS and Android launcher identity
         shell: bash
         run: |
           set -euo pipefail
           grep -Fq 'android:icon="@drawable/zweicheck_app_icon"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'android:roundIcon="@drawable/zweicheck_app_icon"' android/app/src/main/AndroidManifest.xml
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          launcher=Path('android/app/src/main/res/drawable/zweicheck_app_icon.xml').read_text()
-          play=Path('store/google-play/icon.svg').read_text()
-          lcolors=set(re.findall(r'#[0-9A-Fa-f]{6}', launcher))
-          pcolors=set(re.findall(r'#[0-9A-Fa-f]{6}', play))
-          if lcolors != pcolors:
-              raise SystemExit(f'ZweiCheck launcher/store colors differ: {lcolors} != {pcolors}')
-          norm=lambda s: re.sub(r'[\s,]', '', s)
-          lpaths=[norm(x) for x in re.findall(r'android:pathData="([^"]+)"', launcher)]
-          ppaths=[norm(x) for x in re.findall(r'<path[^>]*\bd="([^"]+)"', play)]
-          for path in lpaths:
-              if path not in ppaths:
-                  raise SystemExit(f'ZweiCheck launcher path missing in Play icon: {path}')
-          print('ZweiCheck launcher/Play source parity OK')
-          PY
+          ! grep -Fq 'android:roundIcon=' android/app/src/main/AndroidManifest.xml
+          test ! -e android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          test ! -e android/app/src/main/res/drawable/zweicheck_app_icon.xml
+          test ! -e android/app/src/main/res/drawable/zweicheck_launcher_background.xml
+          test ! -e android/app/src/main/res/drawable/zweicheck_launcher_foreground.xml
+          cmp -s ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png android/app/src/main/res/drawable-nodpi/zweicheck_app_icon.png
           mkdir -p android/play-assets
-          rsvg-convert -w 512 -h 512 store/google-play/icon.svg -o android/play-assets/icon-512.png
+          cp store/google-play/icon-512.png android/play-assets/icon-512.png
           file android/play-assets/icon-512.png
           test "$(stat -c%s android/play-assets/icon-512.png)" -lt 1048576
+          sha256sum ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png android/app/src/main/res/drawable-nodpi/zweicheck_app_icon.png android/play-assets/icon-512.png
           sha256sum android/play-assets/icon-512.png > android/play-assets/icon-512.png.sha256
       - name: Unit tests
         run: gradle -p android testDebugUnitTest --stacktrace

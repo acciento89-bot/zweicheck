@@ -26,27 +26,19 @@ jobs:
       - name: Xcode-Version
         run: xcodebuild -version
       - name: Build-Werkzeuge installieren
-        run: brew install xcodegen librsvg
-      - name: App-Icon aus ZweiCheck-Markenlogo erzeugen
+        run: brew install xcodegen
+      - name: Kanonisches App-Icon prüfen
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE="assets/brand/zweicheck-mark.svg"
           TARGET="ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
-          TEMP_SVG="$RUNNER_TEMP/zweicheck-app-icon.svg"
-          TEMP_RGBA="$RUNNER_TEMP/zweicheck-app-icon-rgba.png"
-          TEMP_JPG="$RUNNER_TEMP/zweicheck-app-icon-flat.jpg"
-
-          test -f "$SOURCE"
-          sed 's/<rect width="512" height="512" rx="112" fill="#0D1B2A"\/>/<rect width="512" height="512" fill="#0D1B2A"\/>/' "$SOURCE" > "$TEMP_SVG"
-          rsvg-convert -w 1024 -h 1024 "$TEMP_SVG" -o "$TEMP_RGBA"
-          sips -s format jpeg -s formatOptions 100 "$TEMP_RGBA" --out "$TEMP_JPG" >/dev/null
-          sips -s format png "$TEMP_JPG" --out "$TARGET" >/dev/null
-
+          test -s "$TARGET"
           WIDTH=$(sips -g pixelWidth "$TARGET" | awk '/pixelWidth/ {print $2}')
           HEIGHT=$(sips -g pixelHeight "$TARGET" | awk '/pixelHeight/ {print $2}')
           test "$WIDTH" = "1024" && test "$HEIGHT" = "1024"
-          echo "ZweiCheck App-Icon: ${WIDTH}x${HEIGHT}"
+          ALPHA=$(sips -g hasAlpha "$TARGET" | awk '/hasAlpha/ {print $2}')
+          test "$ALPHA" = "no"
+          echo "ZweiCheck App-Icon: ${WIDTH}x${HEIGHT}, ohne Alpha"
       - name: Xcode-Projekt erzeugen
         working-directory: ios
         run: xcodegen generate

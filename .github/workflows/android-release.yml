@@ -26,11 +26,9 @@ jobs:
           java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-      - name: Install Android 16 SDK and Play icon renderer
+      - name: Install Android 16 SDK
         run: |
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq librsvg2-bin
       - name: Set up Gradle 9.5
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -47,7 +45,8 @@ jobs:
           test -n "$ANDROID_UPLOAD_KEY_ALIAS"
           test -n "$ANDROID_UPLOAD_KEY_PASSWORD"
           grep -Fq 'android:icon="@drawable/zweicheck_app_icon"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'android:roundIcon="@drawable/zweicheck_app_icon"' android/app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android:roundIcon=' android/app/src/main/AndroidManifest.xml
+          cmp -s ios/ZweiCheck/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png android/app/src/main/res/drawable-nodpi/zweicheck_app_icon.png
       - name: Restore Play upload keystore
         shell: bash
         run: |
@@ -59,12 +58,12 @@ jobs:
         run: gradle -p android testDebugUnitTest --stacktrace
       - name: Build signed release AAB
         run: gradle -p android bundleRelease --stacktrace
-      - name: Render canonical Play icon
+      - name: Copy canonical Play icon derived from iOS
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p android/play-assets
-          rsvg-convert -w 512 -h 512 store/google-play/icon.svg -o android/play-assets/icon-512.png
+          cp store/google-play/icon-512.png android/play-assets/icon-512.png
           file android/play-assets/icon-512.png
           test "$(stat -c%s android/play-assets/icon-512.png)" -lt 1048576
           sha256sum android/play-assets/icon-512.png > android/play-assets/icon-512.png.sha256
