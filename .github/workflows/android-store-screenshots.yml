@@ -36,6 +36,10 @@ jobs:
       - name: Build local debug APK
         run: gradle -p android --no-daemon assembleDebug --stacktrace
 
+      - name: Enable KVM acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
       - name: Capture exact current ZweiCheck UI
         uses: reactivecircus/android-emulator-runner@v2
         with:
