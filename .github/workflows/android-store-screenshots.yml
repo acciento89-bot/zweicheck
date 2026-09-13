@@ -1,0 +1,72 @@
+name: ZweiCheck Android Store Screenshots
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-store-screenshots.yml"
+      - ".github/scripts/capture-android-store-screenshots.sh"
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-store-screenshots.yml"
+      - ".github/scripts/capture-android-store-screenshots.sh"
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+
+      - name: Build local debug APK
+        run: gradle -p android --no-daemon assembleDebug --stacktrace
+
+      - name: Enable KVM acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Capture exact current ZweiCheck UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_7
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: PACKAGE_NAME='de.kamilunavo.zweicheck' WAIT_TEXT='Erst prüfen. Dann handeln.' SECOND_ACTION='tap' SECOND_TEXT='Weiter' OUTPUT_DIR='store/google-play/screenshots/de-DE' bash "$GITHUB_WORKSPACE/.github/scripts/capture-android-store-screenshots.sh"
+
+      - name: Upload authentic screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZweiCheck-Play-Store-Screenshots-de-DE
+          path: store/google-play/screenshots/de-DE/*.png
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Persist authentic screenshots
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          git config user.name 'Kamilunavo Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add store/google-play/screenshots/de-DE
+          if ! git diff --cached --quiet; then
+            git commit -m 'Store authentic ZweiCheck Android screenshots'
+            git push origin HEAD:main
+          fi
+
