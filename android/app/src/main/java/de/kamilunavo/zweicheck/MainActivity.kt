@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -437,7 +438,7 @@ private fun OnboardingScreen(onComplete: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         if (page < pages.size) {
             val item = pages[page]
-            Column(Modifier.fillMaxSize().statusBarsPadding().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = { page = pages.size }) { Text("Überspringen", color = Navy, fontWeight = FontWeight.SemiBold) }
                 }
@@ -452,7 +453,7 @@ private fun OnboardingScreen(onComplete: () -> Unit) {
                 PrimaryAction("Weiter", onClick = { page++ }, modifier = Modifier.padding(top = 22.dp))
             }
         } else {
-            LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyColumn(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item { Text("Du entscheidest", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Navy) }
                 item { Text("Die Grundfunktion bleibt kostenlos. Premium Familie ist optional und kann später im Konto aktiviert werden.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 item { PlanCard("Kostenlos", "Alles für den einfachen zweiten Blick", Icons.Default.Shield, Navy, listOf("Prüfanfragen senden und beantworten", "1 Bild pro Prüfung", "Push-Benachrichtigungen", "Vertrauenspersonen und Aktivitäten")) }
