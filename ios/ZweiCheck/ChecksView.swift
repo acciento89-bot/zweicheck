@@ -79,6 +79,8 @@ struct CheckDetailView: View {
     @State private var reminderMinutes = 15
     @State private var autoReroute = false
     @State private var loadingDetails = true
+    @State private var notebookAuthorized = false
+    @Environment(\.locale) private var locale
     @FocusState private var noteFocused: Bool
 
     init(model: AppModel, initialCheck: CheckItem) {
@@ -104,6 +106,13 @@ struct CheckDetailView: View {
                 }
 
                 if let recommendation = check.recommendationLabel { responseCard(recommendation) }
+                if notebookAuthorized, let ownerID = model.user?.id, check.requesterId == ownerID {
+                    NavigationLink {
+                        LocalVerificationView(model: model, ownerID: ownerID, check: check).id(ownerID + "|" + check.id)
+                    } label: {
+                        Label(locale.language.languageCode?.identifier == "de" ? "Lokale Prüfnotizen" : "Local verification notes", systemImage: "list.bullet.clipboard")
+                    }.buttonStyle(ZweiCheckActionButtonStyle(tone: .navy))
+                }
                 if let routing { routingCard(routing) }
                 if let escalation, escalation.role == "requester" || escalation.exists { escalationCard(escalation) }
                 if canRespond { responseControls }
@@ -291,11 +300,15 @@ struct CheckDetailView: View {
     @MainActor
     private func loadFullState() async {
         loadingDetails = true
+        notebookAuthorized = false
         defer { loadingDetails = false }
         async let detailTask = model.checkDetails(id: check.id)
         async let routingTask = model.checkRouting(id: check.id)
         async let escalationTask = model.checkEscalation(id: check.id)
-        if let detail = await detailTask { check = detail }
+        if let detail = await detailTask {
+            check = detail
+            notebookAuthorized = detail.requesterId == model.user?.id && model.sessionState == .signedIn
+        }
         routing = await routingTask
         escalation = await escalationTask
         if let first = routing?.targets.first, rerouteTargetID.isEmpty { rerouteTargetID = first.person.id }

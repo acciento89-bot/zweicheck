@@ -461,10 +461,18 @@ final class AppModel {
 
     func deleteAccount(password: String) async {
         await runBusy {
+            let localOwnerID = user?.id
             try await api.deleteAccount(password: password)
+            var localCleanupFailed = false
+            if let localOwnerID {
+                do { try VerificationLocalFiles.purge(ownerID: localOwnerID) }
+                catch { localCleanupFailed = true }
+            }
             clearSignedInData()
             sessionState = .signedOut
-            message = "Dein ZweiCheck-Konto wurde gelöscht."
+            message = localCleanupFailed
+                ? "Dein Konto wurde gelöscht. Lokale Prüfnotizen konnten nicht entfernt werden. Bitte entferne die lokalen App-Daten auf diesem Gerät."
+                : "Dein ZweiCheck-Konto wurde gelöscht."
         }
     }
 

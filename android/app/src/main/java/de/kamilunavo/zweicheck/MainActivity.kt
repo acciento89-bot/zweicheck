@@ -69,6 +69,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -128,6 +131,11 @@ private fun ZweiCheckApp(activity: MainActivity) {
     var tab by remember { mutableStateOf(if (initialCheckId != null) Tab.CHECKS else Tab.HOME) }
     var highlightedCheckId by remember { mutableStateOf(initialCheckId) }
     var creating by remember { mutableStateOf(false) }
+    var notebookCheckID by rememberSaveable { mutableStateOf<String?>(null) }
+    var notebookCheck by remember { mutableStateOf<CheckItem?>(null) }
+    var notebookFailed by remember { mutableStateOf(false) }
+    var notebookRetry by remember { mutableStateOf(0) }
+    val notebookGerman = LocalConfiguration.current.locales[0].language == "de"
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
     var sharedDraft by remember { mutableStateOf(extractSharedDraft(activity)) }
@@ -196,8 +204,20 @@ private fun ZweiCheckApp(activity: MainActivity) {
         }
     }
 
+    LaunchedEffect(user?.id, notebookCheckID, notebookRetry) {
+        notebookCheck = null
+        notebookFailed = false
+        val owner = user?.id ?: return@LaunchedEffect
+        val requestID = notebookCheckID ?: return@LaunchedEffect
+        runCatching { api.check(requestID) }.onSuccess { fresh ->
+            if (user?.id == owner && notebookCheckID == requestID && fresh.requesterId == owner && fresh.id == requestID) notebookCheck = fresh
+            else notebookFailed = true
+        }.onFailure { notebookFailed = true }
+    }
+
     BackHandler(enabled = user != null) {
         when {
+            notebookCheckID != null -> { notebookCheckID = null; notebookCheck = null }
             creating -> creating = false
             tab != Tab.HOME -> { tab = Tab.HOME; highlightedCheckId = null }
             else -> activity.moveTaskToBack(true)
@@ -255,6 +275,29 @@ private fun ZweiCheckApp(activity: MainActivity) {
                     }
                 },
             )
+
+            notebookCheckID != null -> {
+                val owner = user!!.id
+                val requestID = notebookCheckID!!
+                val fresh = notebookCheck?.takeIf { it.requesterId == owner && it.id == requestID }
+                if (fresh != null) LocalVerificationScreen(
+                    ownerID = owner,
+                    check = fresh,
+                    isCurrentOwner = { user?.id == owner && notebookCheckID == requestID },
+                    onRefresh = {
+                        runCatching { api.check(requestID) }.getOrNull()?.takeIf {
+                            user?.id == owner && notebookCheckID == requestID && it.requesterId == owner && it.id == requestID
+                        }
+                    },
+                    onBack = { notebookCheckID = null; notebookCheck = null },
+                ) else Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TextButton(onClick = { notebookCheckID = null }) { Text(if (notebookGerman) "Zurück" else "Back") }
+                    if (notebookFailed) {
+                        Text(if (notebookGerman) "Die Anfrage konnte für dieses Konto nicht frisch geladen werden. Lokale Notizen bleiben verborgen." else "The request could not be freshly loaded for this account. Local notes remain hidden.")
+                        OutlinedButton(onClick = { notebookRetry++ }) { Text(if (notebookGerman) "Erneut versuchen" else "Retry") }
+                    } else CircularProgressIndicator()
+                }
+            }
 
             showActivities -> ActivityScreen(
         activities = activities,
@@ -362,6 +405,7 @@ private fun ZweiCheckApp(activity: MainActivity) {
                             checks = checks,
                             currentUserId = user!!.id,
                             highlightedCheckId = highlightedCheckId,
+                            onLocalNotes = { check -> notebookCheck = null; notebookCheckID = check.id },
                             onRespond = { check, recommendation ->
                                 scope.launch {
                                     runCatching { api.respond(check.id, recommendation, "") }
@@ -399,6 +443,8 @@ private fun ZweiCheckApp(activity: MainActivity) {
                             billing = billing,
                             onEnablePush = ::requestPushOptIn,
                             onSignedOut = {
+                                notebookCheckID = null
+                                notebookCheck = null
                                 user = null
                                 checks = emptyList()
                                 trust = null
@@ -692,6 +738,7 @@ private fun ChecksScreen(
     checks: List<CheckItem>,
     currentUserId: String,
     highlightedCheckId: String?,
+    onLocalNotes: (CheckItem) -> Unit,
     onRespond: (CheckItem, Recommendation) -> Unit,
 ) {
     if (checks.isEmpty()) {
@@ -702,6 +749,7 @@ private fun ChecksScreen(
         }
         return
     }
+    val notebookGerman = LocalConfiguration.current.locales[0].language == "de"
     val ordered = checks.sortedWith(compareByDescending<CheckItem> { it.id == highlightedCheckId }.thenByDescending { it.createdAt })
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 24.dp, bottom = 28.dp)) {
         item { Text("Prüfungen", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Navy) }
@@ -721,6 +769,9 @@ private fun ChecksScreen(
                         }
                     }
                     check.recommendationLabel?.let { Text("Antwort: $it", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
+                    if (check.requesterId == currentUserId) OutlinedButton(onClick = { onLocalNotes(check) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (notebookGerman) "Lokale Prüfnotizen" else "Local verification notes")
+                    }
             }
         }
     }
@@ -1014,7 +1065,11 @@ private fun AccountScreen(
                             scope.launch {
                                 runCatching { FcmRegistration.unregisterCurrentToken(activity.applicationContext) }
                                 runCatching { api.deleteAccount(password) }
-                                    .onSuccess { onSignedOut() }
+                                    .onSuccess {
+                                        val cleanup = runCatching { LocalVerificationFiles.purge(activity.filesDir, user.id) }
+                                        onSignedOut()
+                                        if (cleanup.isFailure) onMessage("Konto gelöscht. Lokale Prüfnotizen konnten nicht vollständig entfernt werden.")
+                                    }
                                     .onFailure { onMessage(it.message) }
                             }
                         },
