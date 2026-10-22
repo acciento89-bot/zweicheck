@@ -70,8 +70,8 @@ jobs:
           test -f android/app/build/outputs/bundle/release/app-release.aab
           grep -Fq 'applicationId = "de.kamilunavo.zweicheck"' android/app/build.gradle.kts
           grep -Fq 'targetSdk = 36' android/app/build.gradle.kts
-          grep -Fq 'versionCode = 4' android/app/build.gradle.kts
-          grep -Fq 'versionName = "1.0.3"' android/app/build.gradle.kts
+          grep -Fq 'versionCode = 5' android/app/build.gradle.kts
+          grep -Fq 'versionName = "1.1.0"' android/app/build.gradle.kts
           grep -Fq 'private val ZweiCheckColors' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
           grep -Fq 'BackHandler(enabled = user != null)' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
           grep -Fq 'statusBarsPadding' android/app/src/main/java/de/kamilunavo/zweicheck/MainActivity.kt
@@ -100,7 +100,7 @@ jobs:
       - name: Upload unsigned review assets
         uses: actions/upload-artifact@v4
         with:
-          name: ZweiCheck-1.0.3-4-unsigned-review
+          name: ZweiCheck-1.1.0-5-unsigned-review
           path: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/play-assets/icon-512.png
