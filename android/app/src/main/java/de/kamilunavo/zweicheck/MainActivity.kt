@@ -14,6 +14,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -555,8 +558,15 @@ private fun AuthScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().statusBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.weight(0.6f))
+    Column(
+        Modifier.fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(24.dp))
         Surface(color = Teal, shape = RoundedCornerShape(24.dp), shadowElevation = 10.dp) { Icon(Icons.Default.VerifiedUser, null, tint = Color.White, modifier = Modifier.padding(20.dp).size(52.dp)) }
         Text("ZweiCheck", style = MaterialTheme.typography.displaySmall, color = Navy, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
         Text("Gemeinsam prüfen. Sicher handeln.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -576,7 +586,7 @@ private fun AuthScreen(
             enabled = email.isNotBlank() && password.isNotBlank() && (!register || name.isNotBlank()),
         )
         if (!register) TextButton(onClick = { if (email.isNotBlank()) onReset(email) }) { Text("Passwort vergessen") }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(24.dp))
         Text("Datenschutz · ZweiCheck", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
