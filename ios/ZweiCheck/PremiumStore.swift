@@ -40,10 +40,18 @@ final class PremiumStore {
         }
     }
 
+    // Explicit native QA does not contact StoreKit and never grants Premium.
+    #if DEBUG
+    private let nativeQAProviderDisabled = ProcessInfo.processInfo.arguments.contains("--zweicheckProviderDisabledQA")
+    #else
+    private let nativeQAProviderDisabled = false
+    #endif
+
     private var updatesTask: Task<Void, Never>?
     private var didStart = false
 
     func start() async {
+        guard !nativeQAProviderDisabled else { return }
         if !didStart {
             didStart = true
             startTransactionListener()
@@ -54,10 +62,12 @@ final class PremiumStore {
     }
 
     func reloadProducts() async {
+        guard !nativeQAProviderDisabled else { return }
         await loadProducts(showMessage: true)
     }
 
     func purchaseFamilyMonthly() async {
+        guard !nativeQAProviderDisabled else { return }
         if monthlyProduct == nil {
             await loadProducts(showMessage: false)
         }
@@ -71,6 +81,7 @@ final class PremiumStore {
     }
 
     func purchaseFamilyYearly() async {
+        guard !nativeQAProviderDisabled else { return }
         if yearlyProduct == nil {
             await loadProducts(showMessage: false)
         }
@@ -84,6 +95,7 @@ final class PremiumStore {
     }
 
     func restorePurchases() async {
+        guard !nativeQAProviderDisabled else { return }
         isLoading = true
         defer { isLoading = false }
         do {
@@ -96,6 +108,7 @@ final class PremiumStore {
     }
 
     func refreshEntitlements() async {
+        guard !nativeQAProviderDisabled else { return }
         var activeID: String?
         let validProductIDs: Set<String> = [Self.familyMonthlyProductID, Self.familyYearlyProductID]
 
@@ -112,6 +125,7 @@ final class PremiumStore {
     }
 
     private func purchase(product: Product) async {
+        guard !nativeQAProviderDisabled else { return }
         isLoading = true
         defer { isLoading = false }
 
@@ -139,6 +153,7 @@ final class PremiumStore {
     }
 
     private func loadProducts(showMessage: Bool) async {
+        guard !nativeQAProviderDisabled else { return }
         guard !isLoadingProducts else { return }
 
         isLoadingProducts = true
@@ -170,6 +185,7 @@ final class PremiumStore {
     }
 
     private func startTransactionListener() {
+        guard !nativeQAProviderDisabled else { return }
         updatesTask?.cancel()
         updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
