@@ -1,11 +1,9 @@
 name: ZweiCheck TestFlight
 
+# Native acceptance and real Duo galleries are completed before the root uploads
+# the preserved signed candidate. A main merge must not rebuild/upload it again.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'ios/project.yml'
 
 permissions:
   contents: read
