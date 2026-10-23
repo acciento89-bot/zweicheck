@@ -90,8 +90,8 @@ test('review actions use distinct ZweiCheck web colors', () => {
   assert.match(checks, /case \.callMe: \.navy/);
 });
 
-test('native release build number is 13 for app and share extension', () => {
-  const matches = project.match(/CURRENT_PROJECT_VERSION: 13/g) || [];
+test('native release build number is 14 for app and share extension', () => {
+  const matches = project.match(/CURRENT_PROJECT_VERSION: 14/g) || [];
   assert.equal(matches.length, 2);
   assert.match(project, /CFBundleShortVersionString: \$\(MARKETING_VERSION\)/);
   assert.match(project, /CFBundleVersion: \$\(CURRENT_PROJECT_VERSION\)/);
