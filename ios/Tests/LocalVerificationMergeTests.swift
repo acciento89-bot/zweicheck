@@ -34,6 +34,35 @@ import Foundation
         } catch {}
         let retained = try Data(contentsOf: path)
         precondition(retained == file, "wrong owner merge leaves bytes unchanged")
+        // Native Date() uses the 2001 reference epoch. Conversion to Unix JSON
+        // seconds can round by one ULP; a saved decision must remain editable.
+        var fractional = try LocalVerificationRecord(ownerID: owner, context: context)
+        fractional = try fractional.replacingQuestion(VerificationQuestion(title: "Native input", note: "", status: .open))
+        fractional = try fractional.deciding(choice: .wait, reason: "Own decision", confirmed: true,
+            at: Date(timeIntervalSinceReferenceDate: 814_531_930.246405))
+        let fractionalArchive = try VerificationArchive(url: folder.appendingPathComponent("fractional.json"), ownerID: owner)
+        _ = try fractionalArchive.upsert(fractional)
+        do { _ = try fractionalArchive.upsert(fractional) }
+        catch { fatalError("unchanged native fractional-date history must save again: \(error)") }
+        var edited = fractional.questions[0]; edited.note = "Further local work"
+        fractional = try fractional.replacingQuestion(edited)
+        _ = try fractionalArchive.upsert(fractional)
+        let fractionalReloaded = try fractionalArchive.load()
+        precondition(fractionalReloaded[0].questions[0].note == edited.note)
+        // Persisted timestamp changes still constitute rewritten history.
+        let keptBytes = try Data(contentsOf: fractionalArchive.url)
+        var tamperedJSON = try JSONSerialization.jsonObject(with: keptBytes) as! [String: Any]
+        var tamperedRecords = tamperedJSON["records"] as! [[String: Any]]
+        var tamperedDecisions = tamperedRecords[0]["decisions"] as! [[String: Any]]
+        tamperedDecisions[0]["at"] = (tamperedDecisions[0]["at"] as! Double) + 1
+        tamperedRecords[0]["decisions"] = tamperedDecisions
+        tamperedJSON["records"] = tamperedRecords
+        // Decode only the record, leaving the real archive untouched.
+        let tamperedDecoder = JSONDecoder(); tamperedDecoder.dateDecodingStrategy = .secondsSince1970
+        let tampered = try tamperedDecoder.decode(LocalVerificationRecord.self, from: JSONSerialization.data(withJSONObject: tamperedRecords[0]))
+        do { _ = try fractionalArchive.upsert(tampered); fatalError("changed persisted timestamp must reject") } catch {}
+        let bytesAfterRejectedRewrite = try Data(contentsOf: fractionalArchive.url)
+        precondition(bytesAfterRejectedRewrite == keptBytes, "rejected history rewrite preserves exact file")
         print("ALL ZWEICHECK REQUEST MERGE TESTS PASSED")
     }
 }

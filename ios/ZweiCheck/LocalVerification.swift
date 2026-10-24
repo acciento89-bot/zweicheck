@@ -187,6 +187,12 @@ struct VerificationArchive {
         let current = try load()
         guard record.ownerID == ownerID else { throw LocalVerificationError.invalidArchive }
         try record.validate()
+        // Compare the same persisted representation on both sides. Native Date
+        // values use a different epoch; Unix-second JSON can round one ULP.
+        // Exact history equality still rejects every changed persisted field.
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .secondsSince1970
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .secondsSince1970
+        let record = try decoder.decode(LocalVerificationRecord.self, from: encoder.encode(record))
         if let stored = current.first(where: { $0.id == record.id }) {
             guard Array(record.decisions.prefix(stored.decisions.count)) == stored.decisions,
                   Array(record.replySnapshots.prefix(stored.replySnapshots.count)) == stored.replySnapshots else { throw LocalVerificationError.conflictingHistory }
